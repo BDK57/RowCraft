@@ -1,0 +1,10 @@
+import React from 'react';
+import {createRoot} from 'react-dom/client';
+import App from './App';
+import './styles/globals.css';
+import './styles/studio.css';
+import './styles/workspace-ui.css';
+import './styles/surface-polish.css';
+import './styles/sidebar-motion.css';
+import './styles/studio-theme.css';
+createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);

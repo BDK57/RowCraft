@@ -1,0 +1,13 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {existsSync} from 'node:fs';
+import {cellValue,normalizeSheet,readWorkbook} from '../server/workbook.mjs';
+const cell=(value,numFmt='')=>({value,numFmt,address:'A2'});
+test('dates, formatted identifiers, zero, rich text and cached formulas remain meaningful',()=>{assert.equal(cellValue(cell(new Date('2001-04-12T00:00:00Z'))),'2001-04-12');assert.equal(cellValue(cell(123,'00000')),'00123');assert.equal(cellValue(cell(0)),'0');assert.equal(cellValue(cell({richText:[{text:'Gul '},{text:'Muneer'}]})),'Gul Muneer');assert.equal(cellValue(cell({formula:'1+1',result:2})),'2');assert.equal(cellValue(cell(.25,'0%')),'25%');assert.equal(cellValue(cell('00123')),'00123');});
+test('Excel errors and formulas without saved results are surfaced',()=>{assert.throws(()=>cellValue(cell({error:'#REF!'})),/Excel error/);assert.throws(()=>cellValue(cell({formula:'1+1'})),/recalculate/);assert.throws(()=>cellValue(cell(Infinity)),/Invalid/);});
+test('blank spacers and repeated headers do not become participants; original row IDs survive',()=>{const s=normalizeSheet('Jan',[[1,['Name','DOB']],[2,['Ali','2000-01-01']],[7,['Name','DOB']],[8,['Sajid','1999-02-01']]]);assert.equal(s.rows.length,2);assert.deepEqual(s.skippedHeaders,[7]);assert.equal(s.rows[1].id,'Jan:8');assert.equal(s.rows[1].record,2);});
+test('duplicate and empty headers receive unique display names',()=>{const s=normalizeSheet('Data',[[1,['Name','Name','']],[2,['A','B','C']]]);assert.deepEqual(s.columns,['Name','Name (2)','Column 3']);});
+const suppliedWorkbook=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..','..','excel','Q1 2026 Data for Trade Letter.xlsx');
+test('supplied workbook is read accurately by ExcelJS',{skip:existsSync(suppliedWorkbook)?false:'Optional sample workbook is not included in this checkout.'},async()=>{const result=await readWorkbook(suppliedWorkbook);assert.deepEqual(result.sheets.map(s=>s.rows.length),[1036,1049,1047]);assert.equal(result.sheets[0].rows[0].values[4],'Gul Muneer Communication');assert.equal(result.sheets[0].rows[4].values[4],'Khan Mobile Shop');assert.equal(result.sheets.reduce((n,s)=>n+s.rows.length,0),3132);});

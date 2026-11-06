@@ -1,0 +1,23 @@
+# Verified results
+
+- **27 automated tests passed**: workbook values and errors; stable selections and invalid ranges; arbitrary column mapping; position/font validation; grid/page boundaries; original typography by default; real HTTP downloads and preview responses; missing files and unknown routes; completed-job reloads; CSRF rejection; independent section ranges, same-page/cross-artboard overflow, label ownership, box/section limits and overlapping cards.
+- **TypeScript and Vite production build passed.**
+- **Two-section native test:** records 1–10 and 20–30 generated exactly 21 editable card groups in one AI page, with independent headings and fixed/Excel-derived months. Every mapped value and original card font attribute matched after reopening the AI. Matching PDF and embedded linked artwork verified. See `.local/checks/sections-example.json`.
+- **Cross-artboard section overflow:** 34 cards across three sections and two source artboards produced four output pages. Every card's field values and original typography matched after reopening. See `.local/checks/sections-overflow.json`.
+- **Browser-to-native section export:** job `c2af8ce8-9b55-406f-88fd-c159a2ab2495` completed with 10 cards in Section 1 and 11 in Section 2. Real HTTP responses returned AI 5,107,650 bytes, PDF 2,478,268 bytes, ZIP 7,449,661 bytes, and PNG 130,289 bytes, all status 200. See `.local/checks/sections-live-http.json`.
+- **Field feedback:** the selected field's number remained primary-filled after the temporary highlight ended. Card/page field navigation and clearing a filter that hid the target were checked in the browser. The number changes only when a different field is selected or the artwork context changes.
+- **Five-person native test:** one AI artboard, exactly five card groups, each shop/score/city matched its selected Excel row, all artwork embedded. Font family/weight, point size, tracking, horizontal/vertical scale, fill color, stroke color and stroke weight matched the original sample field for every card.
+- **57-person native test:** one AI document with two artboards, exactly 57 populated cards (56 + 1), each field and original font style verified after reopening in Illustrator. The same heading, month and footer repeat.
+- **PDF checks passed:** matching one- and two-page outputs, 612 × 1008 pt pages, extracted text compared against the AI, and page proofs rendered with Poppler and visually inspected. Header/footer image regions on page two are compared with page one to catch incorrect stacking behind the background. Subset-font ligatures are normalized for text comparison.
+- **Browser workflow completed:** supplied Excel loaded; records 5–10 selected six people; records 1–5 restored; Illustrator preview loaded at 612 × 1008; a whole card selected; shop/score/city mapped; Generate completed with a single AI and PDF.
+- **Live Vite-proxied URLs checked:** both the browser-generated batch and final corrected five-card sample returned valid AI/PDF/ZIP/PNG files. The final sample returned AI 5,035,252 bytes, PDF 2,458,846 bytes, ZIP 7,363,431 bytes and PNG 111,116 bytes, all HTTP 200. The in-app browser's automated download-event wait timed out; direct response contents and attachment headers were verified independently. Please check your browser's normal save/download behavior during manual testing.
+
+The previous preview/download error was caused by Express refusing to serve files beneath the hidden `.local` folder. Validated artifact routes now explicitly allow that folder, verify completed files and return clear errors for missing outputs. No physical `api` directory is required.
+
+Visual QA also caught and fixed the overflow-page background stacking and an unwanted default text stroke. Paint attributes are now restored after stroke weight, and duplicated page artwork retains its original stacking order. Use the newest samples; earlier diagnostic job folders were retained for comparison.
+
+## Review before printing
+
+Original typography is preserved by default. The first-five sample has **one long-text width warning**; the 57-person sample has five. The app does not silently alter font width: choose the explicit condensation option if preferred, or adjust the template field. Review long text, area-text overflow, fonts, bleed and print color settings. Native card repetition requires grouped editable cards; fully rasterized or ungrouped artwork needs template preparation. The cloud renderer is not implemented.
+
+See `MANUAL_TESTING.md` for the exact browser checklist. Runtime reports and proofs are under `.local/checks/`; generated files are under `.local/jobs/<batch-id>/output/`.

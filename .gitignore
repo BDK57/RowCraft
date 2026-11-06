@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.local*/
+.taste-skill/
+.codex-plugin/
+*.tsbuildinfo
+*.log
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+.DS_Store
+Thumbs.db

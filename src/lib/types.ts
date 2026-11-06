@@ -1,0 +1,12 @@
+import type {Card} from '../CardLoop';
+export type {Card} from '../CardLoop';
+export type Row={id:string;record:number;excelRow:number;values:string[]};
+export type Sheet={name:string;columns:string[];rows:Row[];skippedHeaders:number[]};
+export type Workbook={id:string;name:string;sheets:Sheet[]};
+export type Target={id:string;index:number;text:string;x:number;y:number;width:number;height:number;font:string;fontSize:number};
+export type Board={name:string;width:number;height:number;preview:string;targets:Target[];cards?:Card[]};
+export type Mapping={kind:'text'|'position';column:number;targetId?:string;id?:string;x?:number;y?:number;width?:number;fontSize?:number;font?:string;columnName?:string};
+export type SectionLabel={role:'heading'|'month';targetId:string;source:'literal'|'column';value:string;column:number};
+export type ArtworkSection={id:string;name:string;artboard:number;box:{x:number;y:number;width:number;height:number};cardId:string;recordIds:string[];mappings:Mapping[];labels:SectionLabel[]};
+export type Template={id:string;name:string;artboards:Board[];fonts:string[];missingLinks:string[];warnings:string[];preset:null|{name:string;artboard:number;layout?:{cardId:string};mappings:Mapping[]}};
+export type Job={id:string;type:string;status:string;progress:number;message:string;createdAt?:string;createdAtSource?:'recorded'|'folder';error?:string;result?:{count:number;pages?:number;ai?:string;folder?:string;archive:string;pdf:string|null;warnings:string[];previews:string[];proof:boolean}};

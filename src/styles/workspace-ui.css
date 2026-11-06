@@ -1,0 +1,49 @@
+/* Shared sidebar geometry: 1440 = 288 navigation + 1152 workspace.
+   Text geometry is stable through the rail transition in sidebar-motion.css. */
+.studio-main{flex:1;min-width:0;margin-left:0}
+.app-sidebar [data-slot=sidebar-container]{border:0}
+.app-sidebar [data-slot=sidebar-inner]{background:var(--sidebar)}
+.app-brand{display:flex;align-items:center;gap:12px;min-width:0}
+.app-brand>img{width:36px;height:36px;flex:none}
+.app-brand>div{min-width:0}.app-brand span{display:block;font-size:20px;font-weight:600;letter-spacing:-.5px;line-height:1.3}
+.app-brand p{font-size:12px;line-height:1.5;margin-top:4px;color:var(--muted-foreground)}
+.app-sidebar-header{padding:24px 24px 16px;display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:8px}
+.app-sidebar-content{padding:8px 16px;gap:16px;scrollbar-width:thin}
+.app-sidebar-content [data-slot=sidebar-group]{padding:0}
+.app-sidebar-content [data-slot=sidebar-group-label]{padding:0 12px;margin-bottom:12px;font-size:12px;font-weight:400;color:var(--muted-foreground)}
+.app-sidebar-content [data-slot=sidebar-menu]{gap:6px}
+.app-workflow-link{position:relative;isolation:isolate;min-height:64px;height:auto;padding:12px;gap:12px;overflow:visible;align-items:center;border-radius:8px;transition:background-color .18s,color .18s}
+.app-workflow-link[data-active=true]{background:transparent}
+.app-nav-indicator{position:absolute;inset:0;border-radius:8px;background:var(--sidebar-accent);z-index:-1}
+.app-workflow-link>.app-nav-icon{width:19px;height:19px;color:var(--foreground);flex:none}
+.app-workflow-link>.app-nav-copy{min-width:0;flex:1;white-space:normal;overflow:visible}
+.app-nav-copy strong{display:block;font-size:14px;font-weight:500;line-height:1.4}
+.app-nav-copy small{display:block;color:var(--muted-foreground);font-size:12px;font-weight:400;line-height:1.5;margin-top:4px}
+.app-workflow-link>.app-nav-state{width:15px;height:15px;flex:none}
+.app-batch-summary{margin:0 12px;padding:14px 0;border-top:1px solid var(--sidebar-border)}
+.app-batch-summary>div{display:flex;align-items:center;gap:7px;font-size:12px}.app-batch-summary svg{width:15px;height:15px;flex:none}
+.app-batch-summary p{font-size:12px;line-height:1.65;color:var(--muted-foreground);margin-top:10px;max-width:210px}
+.app-sidebar-footer{padding:12px 24px 20px;gap:14px;flex-shrink:0}
+.app-sidebar-footer [data-slot=sidebar-menu-button]{height:auto;min-height:40px;padding:8px 4px;gap:12px;font-size:13px;color:var(--muted-foreground)}
+.app-sidebar-footer [data-slot=sidebar-menu-button]>span{white-space:normal;overflow:visible}
+.app-local-note{display:flex;align-items:start;gap:12px;border-top:1px solid var(--sidebar-border);padding-top:16px;min-width:0}
+.app-local-note>svg{width:16px;height:16px;flex:none;margin-top:2px;color:var(--muted-foreground)}
+.app-local-note>div{min-width:0;flex:1}.app-local-note strong{display:block;font-size:12px;line-height:1.5;font-weight:500}
+.app-local-note p{font-size:12px;line-height:1.65;color:var(--muted-foreground);margin-top:4px;white-space:normal;overflow-wrap:break-word}
+.topbar-brand{display:none}.topbar-context [data-slot=sidebar-trigger]{margin-right:3px}
+.batch-history-title{display:flex;align-items:center;gap:10px}.batch-accordion{padding:0 20px}
+.batch-trigger{align-items:center;gap:12px;padding:18px 0;min-height:72px;white-space:normal;text-decoration:none!important}
+.batch-state{display:flex;align-items:center;justify-content:center;width:28px;height:28px;flex:none;border-radius:50%;background:var(--brand-soft);color:var(--brand-ink)}.batch-state svg{width:14px;height:14px}
+.batch-identity{display:block;min-width:0;flex:1;text-align:left}.batch-identity strong{display:block;font-size:14px;line-height:1.5;font-weight:500}
+.batch-identity strong>span{font-size:12px;color:var(--muted-foreground);font-weight:400;margin-left:6px;white-space:nowrap}
+.batch-identity small{display:block;font-size:12px;line-height:1.6;color:var(--muted-foreground);font-weight:400;margin-top:3px;font-variant-numeric:tabular-nums}
+.batch-details{padding:0 0 8px 40px;min-width:0;font-size:12px;line-height:1.7;color:var(--muted-foreground)}
+.batch-downloads,.batch-pages{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:14px}
+.batch-warnings{padding:12px 14px;margin-top:16px;border-radius:6px;background:var(--warning-bg);color:var(--warning)}.batch-warnings strong{font-weight:500}.batch-warnings ul{list-style:disc;padding-left:18px;margin-top:6px}
+.batch-folder{margin-top:16px;padding:12px 14px;background:var(--muted);border-radius:6px;min-width:0}.batch-folder>span{display:flex;align-items:center;gap:7px;font-weight:500;color:var(--foreground)}
+.batch-folder svg{width:14px;height:14px}.batch-folder code{display:block;overflow-wrap:anywhere;line-height:1.8;font-size:11px;margin:7px 0}.batch-folder p{font-size:12px;line-height:1.65}
+.batch-history-more{padding:8px 20px;border-top:1px solid var(--border)}.batch-empty{display:grid;justify-items:center;text-align:center;gap:10px;padding:36px 24px}.batch-empty>svg{width:24px;height:24px;color:var(--muted-foreground)}.batch-empty p{font-size:13px;color:var(--muted-foreground)}
+@media(min-width:768px){.desktop-context{display:flex!important}.mobile-stepper{display:none!important}}
+@media(max-width:1200px) and (min-width:768px){.review-layout{grid-template-columns:minmax(0,1fr)}.review-side{grid-template-columns:1fr 1fr}.mapping-workbench{grid-template-columns:minmax(0,1fr) 285px;gap:16px}}
+@media(max-width:1050px) and (min-width:768px){.mapping-workbench{display:flex;flex-direction:column}.mapping-inspector{max-height:none}.people-toolbar{flex-wrap:wrap}.range-control{flex-wrap:wrap}.workspace-heading{align-items:start}.workspace-scope{display:none}.source-file{flex-wrap:wrap}.source-file>.source-actions{width:100%;margin-left:0}.review-side{grid-template-columns:1fr}}
+@media(max-width:767px){.topbar-brand{display:flex;gap:7px}.topbar-brand>img{width:25px;height:25px}.topbar-brand span{font-size:16px;letter-spacing:-.3px}.desktop-context{display:none!important}.app-sidebar-header{padding:24px 20px 16px}.app-sidebar-header .app-brand{gap:8px}.app-sidebar-header .app-brand span{font-size:19px}.app-sidebar-header .app-brand p{font-size:11px}.app-sidebar-header .app-brand>img{width:32px;height:32px}.batch-details{padding-left:0}.batch-accordion{padding:0 15px}.batch-identity strong>span{font-size:11px}.batch-downloads [data-slot=button]{min-height:40px}.app-sidebar-footer{padding-bottom:max(24px,env(safe-area-inset-bottom))}}

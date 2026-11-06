@@ -1,0 +1,60 @@
+/* Reference direction: generous round panels, geometric type, lighter hierarchy. */
+html{font-family:var(--font-sans)}
+.studio-shell,.studio-main{background:var(--workspace-surface)}
+h1{font-size:26px;font-weight:500;letter-spacing:-.8px;line-height:1.3}
+h2{font-size:17px;font-weight:500;letter-spacing:-.35px}h3{font-weight:500}
+.studio-sheet{border:0;background:transparent;border-radius:0;padding-top:28px}
+.studio-topbar{height:68px}.workspace-heading{margin-bottom:28px}.workspace-heading p{font-size:14px;line-height:1.7;margin-top:9px}
+.work-panel,.empty-workbook,.source-file,.canvas-panel,.mapping-inspector{border:0;border-radius:var(--radius-xl);background:var(--card)}
+.source-file{padding:22px 24px;background:var(--muted);margin-bottom:24px}
+.work-panel{overflow:hidden}.empty-workbook{min-height:360px}.empty-workbook h2{font-size:24px;font-weight:500;letter-spacing:-.65px}
+.panel-top{padding:22px 24px}.panel-top p{font-size:13px;line-height:1.6}
+[data-slot=button]{border-radius:var(--radius-lg);font-weight:500;min-height:40px;padding-inline:16px}
+[data-slot=button][data-size^=icon]{padding:0}
+[data-slot=input],[data-slot=select-trigger]{border-radius:var(--radius-lg);min-height:42px}
+[data-slot=dialog-content],[data-slot=sheet-content]{border-radius:var(--radius-xl)}
+[data-mobile=true][data-slot=sidebar]{border-radius:0 24px 24px 0}
+.app-sidebar{border:0!important}.app-batch-summary,.app-local-note{border:0}
+.app-sidebar-header{padding-top:28px}.app-brand span{font-weight:600;letter-spacing:-.6px}.app-nav-copy strong{font-weight:500}
+.app-nav-indicator,.app-workflow-link{border-radius:16px}
+.app-batch-summary{background:var(--muted);padding:16px;border-radius:18px;margin:4px 4px 0}
+.app-local-note{padding-top:8px}.app-sidebar-footer{gap:12px}
+.batch-state{border-radius:10px}.batch-trigger{padding-block:20px}.batch-folder,.batch-warnings{border-radius:14px}
+.proof-summary{padding:24px}.batch-equation{padding:28px 24px}.batch-equation strong{font-weight:500}
+.workflow-footer{background:var(--workspace-surface);border:0}.studio-footnote{padding-top:18px}
+.mapping-workbench{gap:22px}.mapping-inspector{padding:22px}.canvas-heading{padding:20px}.canvas-options{padding:12px 20px}
+.artboard-thumbnail,.card-choice-panel{border-radius:18px}.source-toolbar{border-radius:20px}
+.people-table th{font-weight:500}.people-table td{font-weight:400}.batch-identity strong{font-weight:500}
+/* Mapping is a document-length form: keep every control in normal page flow. */
+.mapping-workbench>.mapping-inspector{max-height:none;height:auto;overflow:visible;align-self:start}
+/* Keep selection menus close to their trigger and bounded by their content column. */
+.choice-select-menu[data-slot=select-content]{width:min(var(--radix-select-trigger-width),360px,calc(100vw - 24px));max-width:calc(100vw - 24px);border-radius:14px;padding:4px}
+.choice-select-menu [data-radix-select-viewport]{min-width:0!important;width:100%;padding:0}
+.choice-select-menu [data-slot=select-item]{min-height:38px;padding-block:8px;border-radius:9px}
+.choice-select-menu [data-slot=select-item]>span:last-child{min-width:0;white-space:normal;overflow-wrap:anywhere}
+.text-fit-setting{display:grid;grid-template-columns:minmax(0,1fr) 264px;gap:20px;align-items:center;flex:1;min-width:0}
+.export-options .text-fit-select{width:264px;max-width:100%;margin:0}
+/* Each batch is one disclosure, with its downloads grouped inside its open surface. */
+.batch-history .panel-top{border-bottom:0;padding-bottom:16px;flex-wrap:nowrap;align-items:center}
+.batch-history .panel-top>div{min-width:0}.batch-history .panel-top>[data-slot=button]{flex:none}
+.batch-history .batch-accordion{display:flex;flex-direction:column;gap:8px;padding:0 20px 20px}
+.batch-accordion>[data-slot=accordion-item]{border:1px solid var(--border);border-radius:16px;overflow:hidden;background:var(--card);transition:border-color .18s}
+.batch-accordion>[data-slot=accordion-item][data-state=open]{border-color:var(--ring)}
+.batch-accordion .batch-trigger{min-height:72px;padding:14px 16px;gap:12px;border-radius:0;transition:background-color .18s}
+.batch-accordion .batch-trigger:hover,.batch-accordion .batch-trigger[data-state=open]{background:var(--muted)}
+.batch-accordion .batch-state{width:24px;height:24px;background:transparent;color:var(--muted-foreground);border-radius:0}
+.batch-accordion .batch-state svg{width:20px;height:20px}
+.batch-identity strong{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;line-height:1.4}
+.batch-identity strong>span{margin:0;font-family:var(--font-mono);font-size:11px}
+.batch-identity small{margin-top:5px;font-variant-numeric:tabular-nums}
+.batch-review-count{flex:none;white-space:nowrap;background:var(--warning-bg);color:var(--warning);font-size:11px;font-weight:400;padding:3px 8px;border:0}
+.batch-accordion .batch-trigger>svg{width:16px;height:16px;transform:translateY(0)}
+.batch-accordion .batch-trigger[data-state=open]>svg{transform:rotate(180deg)}
+.batch-accordion-content{padding-bottom:0}
+.batch-accordion .batch-details{padding:16px 18px 18px;border-top:1px solid var(--border)}
+.batch-accordion .batch-downloads{margin-top:12px}
+.batch-history .batch-history-more{padding:0 20px 16px;border:0}
+@media(max-width:1200px){.text-fit-setting{grid-template-columns:minmax(0,1fr);gap:12px}}
+@media(max-width:600px){.export-options .text-fit-select{width:100%}.batch-history .batch-accordion{padding:0 14px 14px}.batch-accordion .batch-trigger{padding:12px;gap:10px;flex-wrap:wrap}.batch-identity{flex-basis:calc(100% - 62px)}.batch-identity strong{gap:4px 8px}.batch-review-count{margin-left:34px;order:1}.batch-accordion .batch-details{padding:14px}.batch-accordion .batch-trigger>svg{margin-left:auto}}
+@media(max-width:800px){.source-file{padding:18px}.panel-top{padding:18px}.studio-sheet{padding-top:22px}.studio-topbar{height:60px}.workspace-heading p{font-size:13px}}
+@media(max-width:600px){h1{font-size:24px}.workspace-heading h1{font-size:24px}.studio-sheet{padding-inline:14px}.source-file{border-radius:20px}.panel-top{padding:18px}.mapping-inspector{padding:18px}.empty-workbook{min-height:320px}.empty-workbook h2{font-size:21px}.workflow-footer [data-slot=button]{padding-inline:12px}.proof-summary{padding:20px}.app-sidebar-header{padding-top:24px}.mobile-stepper>[data-slot=button]{padding-inline:4px;flex-shrink:1;min-width:0}}

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <title>Cover Studio</title>
+  <path d="M14 14H8v42a4 4 0 0 0 4 4h32v-6" stroke="#252438" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M23 4h22l11 11v31a4 4 0 0 1-4 4H23a4 4 0 0 1-4-4V8a4 4 0 0 1 4-4Z" fill="#252438"/>
+  <path d="M44 4v12h12" fill="#cbd5ed"/>
+  <path d="M28 22h18" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+  <rect x="27" y="29" width="8" height="12" rx="2" fill="#fff"/>
+  <rect x="40" y="29" width="8" height="12" rx="2" fill="#fff"/>
+</svg>
