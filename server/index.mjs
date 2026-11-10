@@ -3,7 +3,6 @@ import multer from 'multer';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import {existsSync} from 'node:fs';
-import os from 'node:os';
 import crypto from 'node:crypto';
 import {spawn} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
@@ -12,39 +11,49 @@ import {planGrid,gridAssignments,splitMappings} from './grid.mjs';
 import {planSections,sectionAssignments} from './sections.mjs';
 import {downloadableArtifact} from './artifacts.mjs';
 import {readWorkbook} from './workbook.mjs';
+import {unpackTemplate,packageOutput} from './archives.mjs';
 
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-const LOCAL=path.join(ROOT,'.local');const PORT=Number(process.env.PORT||4317);
+const LOCAL=path.resolve(process.env.ROWCRAFT_DATA_DIR||path.join(ROOT,'.local'));const PORT=Number(process.env.PORT||4317);
 for(const d of ['uploads','workbooks','templates','jobs'])await fs.mkdir(path.join(LOCAL,d),{recursive:true});
 const token=crypto.randomBytes(24).toString('hex');
+let closing=false;
 const app=express();app.disable('x-powered-by');app.use(express.json({limit:'4mb'}));
+if(process.env.ROWCRAFT_DESKTOP==='1')app.use((req,res,next)=>{
+  res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
+  res.setHeader('X-Content-Type-Options','nosniff');next();
+});
 app.use('/api',(req,res,next)=>{
   res.setHeader('Cache-Control','no-store');
   const origin=req.get('origin');
-  if(origin&&!['http://127.0.0.1:5173','http://localhost:5173',`http://127.0.0.1:${PORT}`,`http://localhost:${PORT}`].includes(origin))return res.status(403).json({error:'This application accepts requests from its local interface only.'});
+  const localOrigins=[`http://127.0.0.1:${req.socket.localPort}`,`http://localhost:${req.socket.localPort}`];
+  if(process.env.ROWCRAFT_DESKTOP!=='1')localOrigins.push('http://127.0.0.1:5173','http://localhost:5173');
+  if(!localOrigins.includes(`http://${req.get('host')}`)||origin&&!localOrigins.includes(origin))return res.status(403).json({error:'This application accepts requests from its local interface only.'});
   if(req.method!=='GET'&&req.get('x-cover-studio-token')!==token)return res.status(403).json({error:'Refresh the page before continuing.'});
+  if(closing&&req.method!=='GET')return res.status(503).json({error:'RowCraft is closing. Reopen it to start another batch.'});
   next();
 });
 const upload=multer({dest:path.join(LOCAL,'uploads'),limits:{fileSize:160*1024*1024,files:1}});
-const python=process.env.PYTHON||[path.join(os.homedir(),'.cache','codex-runtimes','codex-primary-runtime','dependencies','python','python.exe')].find(existsSync)||(process.platform==='win32'?'python':'python3');
 function run(command,args,options={}){
-  return new Promise((resolve,reject)=>{const p=spawn(command,args,{cwd:ROOT,windowsHide:true,...options});let stdout='',stderr='';p.stdout.on('data',d=>{stdout+=d;if(stdout.length>32*1024*1024)p.kill();});p.stderr.on('data',d=>stderr+=d);p.on('error',e=>reject(new Error(`Cannot start ${path.basename(command)}: ${e.message}`)));p.on('close',code=>code===0?resolve(stdout):reject(new Error(stderr.trim()||stdout.trim()||`Renderer exited with code ${code}`)));});
+  return new Promise((resolve,reject)=>{const p=spawn(command,args,{cwd:LOCAL,windowsHide:true,...options});let stdout='',stderr='';p.stdout.on('data',d=>{stdout+=d;if(stdout.length>32*1024*1024)p.kill();});p.stderr.on('data',d=>stderr+=d);p.on('error',e=>reject(new Error(`Cannot start ${path.basename(command)}: ${e.message}`)));p.on('close',code=>code===0?resolve(stdout):reject(new Error(stderr.trim()||stdout.trim()||`Renderer exited with code ${code}`)));});
 }
 const readJSON=async p=>JSON.parse(await fs.readFile(p,'utf8'));
 const writeJSON=async(p,data)=>fs.writeFile(p,JSON.stringify(data,null,2),'utf8');
 const key=id=>{if(!/^[a-f0-9-]{36}$/.test(id))throw Error('Invalid local resource');return id;};
 async function book(id){return readJSON(path.join(LOCAL,'workbooks',`${key(id)}.json`));}
 async function template(id){return readJSON(path.join(LOCAL,'templates',key(id),'template.json'));}
-let queue=Promise.resolve();const statuses=new Map();
+let queue=Promise.resolve(),pendingJobs=0;const statuses=new Map();
 function enqueue(type,work){
+  if(closing)throw Error('RowCraft is closing. Reopen it to start another batch.');
   const id=crypto.randomUUID(),dir=path.join(LOCAL,'jobs',id);
   const status={id,type,status:'queued',message:'Waiting for the Illustrator worker',progress:0,createdAt:new Date().toISOString(),createdAtSource:'recorded'};statuses.set(id,status);
+  pendingJobs++;
   queue=queue.catch(()=>{}).then(async()=>{
     await fs.mkdir(dir,{recursive:true});Object.assign(status,{status:'running',message:type==='inspect'?'Opening template in Illustrator':'Generating personalized covers'});await writeJSON(path.join(dir,'status.json'),status);
     try{const result=await work(dir,status);Object.assign(status,{status:'complete',progress:100,message:'Complete',result});}
     catch(e){Object.assign(status,{status:'failed',message:e.message,error:e.message});}
     await writeJSON(path.join(dir,'status.json'),status);
-  });return status;
+  }).finally(()=>{pendingJobs--;});return status;
 }
 async function illustrator(request,dir){
   if(process.platform!=='win32')throw Error('Native Illustrator generation requires Windows and an installed Illustrator desktop application.');
@@ -73,7 +82,7 @@ function importTemplate(source,name,assetsRoot){
   });
 }
 function publicTemplate(t){const {source,assetsRoot,...rest}=t;return {...rest,artboards:t.artboards.map((a,i)=>({...a,preview:`/api/templates/${t.id}/preview/${i}`}))};}
-app.get('/api/session',(req,res)=>res.json({token,platform:process.platform,nativeAvailable:process.platform==='win32'}));
+app.get('/api/session',(req,res)=>res.json({token,platform:process.platform,nativeAvailable:process.platform==='win32'&&process.env.ROWCRAFT_NATIVE_AVAILABLE!=='0'}));
 app.get('/api/health',(req,res)=>res.json({ok:true,version:'0.2.0',singleAi:true,renderer:'Illustrator desktop',platform:process.platform}));
 app.post('/api/workbooks',upload.single('file'),async(req,res)=>{
   if(!req.file)throw Error('Choose an Excel workbook or CSV file.');
@@ -95,7 +104,7 @@ app.post('/api/templates',upload.single('file'),async(req,res)=>{
       if(crypto.createHash('sha256').update(a).digest('hex')===crypto.createHash('sha256').update(b).digest('hex'))assetsRoot=supplied;
     }
   }
-  if(ext==='.zip'){const pack=JSON.parse(await run(python,['server/files.py','unpack',source,source+'_assets']));target=pack.template;assetsRoot=pack.assetsRoot;}
+  if(ext==='.zip'){const pack=await unpackTemplate(source,source+'_assets');target=pack.template;assetsRoot=pack.assetsRoot;}
   const job=importTemplate(target,req.file.originalname,assetsRoot);res.status(202).json(job);
 });
 app.get('/api/templates',async(req,res)=>{
@@ -135,7 +144,7 @@ app.post('/api/jobs',async(req,res)=>{
       const result=await illustrator({operation:'generate-sections',source:t.source,assetsRoot:t.assetsRoot,sectionPlan:plan,textFit,includePdf:!!includePdf,outputDir,metadata:t},dir);
       await fs.stat(path.join(outputDir,'personalized-covers.ai'));if(includePdf)await fs.stat(path.join(outputDir,'personalized-covers.pdf'));
       await writeJSON(path.join(outputDir,'manifest.json'),{workbook:w.name,sheet:sheetName,template:t.name,mode:'sections',pages:plan.pageCount,textFit,sections:plan.sections.map(s=>({id:s.id,name:s.name,artboard:s.artboard+1,box:s.box,cardsPerPage:s.capacity,count:s.records.length,mappings:s.mappings,labels:s.labels})),records:sectionAssignments(plan),warnings:result.warnings||[]});
-      await run(python,['server/files.py','package',outputDir,path.join(dir,'covers.zip')]);
+      await packageOutput(outputDir,path.join(dir,'covers.zip'));
       const base=`/api/jobs/${path.basename(dir)}`;return {count:plan.count,pages:plan.pageCount,ai:base+'/ai',archive:base+'/download',pdf:includePdf?base+'/pdf':null,folder:outputDir,proof:!!proof,warnings:result.warnings||[],previews:result.previews.map(name=>base+'/preview/'+name)};
     });return res.status(202).json(job);
   }
@@ -151,7 +160,7 @@ app.post('/api/jobs',async(req,res)=>{
     await fs.stat(path.join(outputDir,'personalized-covers.ai'));
     if(includePdf)await fs.stat(path.join(outputDir,'personalized-covers.pdf'));
     await writeJSON(path.join(outputDir,'manifest.json'),{workbook:w.name,sheet:sheetName,template:t.name,artboard:artboard+1,columns:selection.sheet.columns,cardsPerPage:grid.capacity,pages:grid.pages,textFit,records:gridAssignments(grid,rows),mappings:checked,warnings:result.warnings||[]});
-    const archive=path.join(dir,'covers.zip');await run(python,['server/files.py','package',outputDir,archive]);
+    const archive=path.join(dir,'covers.zip');await packageOutput(outputDir,archive);
     const base=`/api/jobs/${path.basename(dir)}`;
     return {count:rows.length,pages:grid.pages,ai:base+'/ai',archive:base+'/download',pdf:includePdf?base+'/pdf':null,folder:outputDir,proof:!!proof,warnings:result.warnings||[],previews:result.previews.map(name=>base+'/preview/'+name)};
   });res.status(202).json(job);
@@ -178,10 +187,12 @@ for(const [route,kind,filename] of [['ai','ai','personalized-covers.ai'],['pdf',
   const file=await downloadableArtifact(LOCAL,id,s,kind);if(!file)return res.status(404).json({error:'This file is not available. Finish or regenerate the batch first.'});res.download(file,filename,{dotfiles:'allow'});
 });
 app.get('/api/jobs/:id/preview/:name',async(req,res)=>{const id=key(req.params.id),name=req.params.name;if(!/^(?:page-\d{4}|\d{4}_[a-zA-Z0-9_-]+)$/.test(name))return res.sendStatus(404);res.sendFile(path.join(LOCAL,'jobs',id,'output',name+'.png'),{dotfiles:'allow'});});
-app.post('/api/demo/workbook',async(req,res)=>{const source=path.resolve(ROOT,'..','excel','Q1 2026 Data for Trade Letter.xlsx');res.json(await importWorkbook(source,'Q1 2026 Data for Trade Letter.xlsx'));});
-app.post('/api/demo/template',async(req,res)=>{const folder=path.resolve(ROOT,'..','illustrations','Stop & Shop Trade Letter');res.status(202).json(importTemplate(path.join(folder,'Stop & Shop Trade Letter.ai'),'Stop & Shop Trade Letter.ai',folder));});
-app.use('/api',(req,res)=>res.status(404).json({error:'This API route was not found. Start the current version of Cover Studio and refresh.'}));
+app.post('/api/demo/workbook',async(req,res)=>{const source=path.resolve(ROOT,'..','excel','Q1 2026 Data for Trade Letter.xlsx');if(!existsSync(source))throw Error('The sample workbook is not bundled. Upload your own XLSX or CSV file.');res.json(await importWorkbook(source,'Q1 2026 Data for Trade Letter.xlsx'));});
+app.post('/api/demo/template',async(req,res)=>{const folder=path.resolve(ROOT,'..','illustrations','Stop & Shop Trade Letter');if(!existsSync(path.join(folder,'Stop & Shop Trade Letter.ai')))throw Error('The sample design is not bundled. Upload your AI file, or a ZIP with its linked images.');res.status(202).json(importTemplate(path.join(folder,'Stop & Shop Trade Letter.ai'),'Stop & Shop Trade Letter.ai',folder));});
+app.use('/api',(req,res)=>res.status(404).json({error:'This API route was not found. Start the current version of RowCraft and refresh.'}));
 app.use(express.static(path.join(ROOT,'dist')));
 app.use((error,req,res,next)=>{console.error(error.message);res.status(error instanceof multer.MulterError?413:400).json({error:error.message||'The request failed.'});});
-if(process.env.COVER_STUDIO_NO_LISTEN!=='1')app.listen(PORT,'127.0.0.1',()=>console.log(`Cover Studio API: http://127.0.0.1:${PORT}`));
-export {app};
+if(process.env.COVER_STUDIO_NO_LISTEN!=='1')app.listen(PORT,'127.0.0.1',()=>console.log(`RowCraft API: http://127.0.0.1:${PORT}`));
+const activeJobs=()=>pendingJobs;
+const prepareShutdown=()=>{const count=activeJobs();if(!count)closing=true;return count;};
+export {app,activeJobs,prepareShutdown};

@@ -1,5 +1,8 @@
 node_modules/
 dist/
+release/
+desktop/assets/icon.png
+desktop/assets/illustrator-check.nsh
 .local*/
 .taste-skill/
 .codex-plugin/

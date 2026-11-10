@@ -33,7 +33,7 @@ function AppShell(){
     {s.running&&<div className="render-progress" role="status"><div><LoaderCircle className="size-4 animate-spin motion-reduce:animate-none"/><strong>{working?s.activeJob!.message:s.busy}</strong>{working&&s.activeJob!.status==='running'&&<span>{s.activeJob!.progress}%</span>}</div>{working&&<Progress aria-label="Illustrator progress" value={s.activeJob!.progress}/>}<p>{working?'Illustrator is preparing your artwork. You can keep reviewing this batch.':'Your workspace is being updated.'}</p></div>}
     <input ref={s.workbookInput} className="sr-only" type="file" accept=".xlsx,.csv" aria-label="Upload workbook" onChange={event=>{const file=event.currentTarget.files?.[0];event.currentTarget.value='';if(file)void s.uploadFile(file,'workbooks');}}/>
     <AnimatePresence initial={false} mode="wait"><motion.div key={s.view} initial={reduced?false:{opacity:0,x:6}} animate={{opacity:1,x:0}} exit={reduced?undefined:{opacity:0,x:-4}} transition={{duration:reduced?0:.16,ease:'easeOut'}}><Suspense fallback={<div className="loading-step" role="status"><LoaderCircle className="size-5 animate-spin motion-reduce:animate-none"/>Opening your workspace…</div>}>{s.view==='data'?<People s={s}/>:s.view==='design'?<Design s={s}/>:<Review s={s}/>}</Suspense></motion.div></AnimatePresence>
-   </div><footer className="studio-footnote"><span>Cover Studio</span><span>Editable AI · Print PDF · Local processing</span></footer>
+   </div><footer className="studio-footnote"><span>RowCraft</span><span>Editable AI · Print PDF · Local processing</span></footer>
   </main><WorkspaceDialogs s={s} help={help} onHelp={setHelp}/>
  </SidebarProvider></TooltipProvider>;
 }

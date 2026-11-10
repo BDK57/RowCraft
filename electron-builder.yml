@@ -1,0 +1,34 @@
+appId: com.rowcraft.desktop
+productName: RowCraft
+copyright: Copyright © 2026 RowCraft
+asar: true
+directories:
+  output: release
+  buildResources: desktop/assets
+files:
+  - dist/**/*
+  - desktop/**/*
+  - '!desktop/assets/*.nsh'
+  - server/**/*.mjs
+  - server/illustrator.jsx
+  - package.json
+  - '!**/*.map'
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: desktop/assets/icon.png
+  artifactName: RowCraft-Setup-${version}-${arch}.${ext}
+  # Private pilot: no signing credentials or publisher identity are supplied.
+  signExecutable: false
+nsis:
+  oneClick: false
+  perMachine: false
+  allowElevation: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: RowCraft
+  runAfterFinish: true
+  deleteAppDataOnUninstall: false
+  include: desktop/installer.nsh

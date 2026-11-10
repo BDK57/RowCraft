@@ -1,0 +1,11 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {Resvg} from '@resvg/resvg-js';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const assets=path.join(root,'desktop','assets');await fs.mkdir(assets,{recursive:true});
+const svg=await fs.readFile(path.join(root,'public','cover-studio.svg'),'utf8');
+await fs.writeFile(path.join(assets,'icon.png'),new Resvg(svg,{fitTo:{mode:'width',value:512}}).render().asPng());
+const check=await fs.readFile(path.join(root,'desktop','illustrator-detect.ps1'),'utf8');
+await fs.writeFile(path.join(assets,'illustrator-check.nsh'),`!define ROWCRAFT_ILLUSTRATOR_CHECK "${Buffer.from(check,'utf16le').toString('base64')}"\n`);
+console.log('RowCraft desktop icon and installer prerequisite check prepared.');

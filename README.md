@@ -10,7 +10,13 @@ It solves a familiar problem: **the design is ready, the data is in a spreadshee
 
 RowCraft automates that repetition while giving you control over the records, fields, sections, and finished output.
 
-> **Current platform:** Windows with an installed, licensed Adobe Illustrator desktop application. The interface runs in your browser; Illustrator generates the artwork locally in the background. The current interface and launcher are labeled **Cover Studio**.
+> **Current platform:** Windows with an installed, licensed Adobe Illustrator desktop application. The interface runs in your browser; Illustrator generates the artwork locally in the background.
+
+## Windows desktop application
+
+RowCraft also runs as an Electron desktop app using this same web interface and renderer. Its installer includes Node.js and requires Adobe Illustrator before continuing. It does not require users to start a server or install Python. The web application remains available.
+
+Build the installer with `npm run desktop:dist` (Node 22.12+ on Windows x64). Outputs appear in `release/`. See [desktop setup, local data, and build instructions](desktop/README.md). The first desktop release is an unsigned private pilot.
 
 ## Why use RowCraft?
 
