@@ -12,6 +12,8 @@ RowCraft automates that repetition while giving you control over the records, fi
 
 > **Current platform:** Windows with an installed, licensed Adobe Illustrator desktop application. The interface runs in your browser; Illustrator generates the artwork locally in the background.
 
+Apple Silicon macOS support is being prepared for QA. The Mac connection, ARM64 DMG configuration and manual GitHub Actions build are included; macOS packaging and real Illustrator validation must pass before it is considered supported. See [Mac build and QA instructions](desktop/MACOS.md).
+
 ## Windows desktop application
 
 RowCraft also runs as an Electron desktop app using this same web interface and renderer. Its installer includes Node.js and requires Adobe Illustrator before continuing. It does not require users to start a server or install Python. The web application remains available.
@@ -31,6 +33,8 @@ RowCraft helps you:
 - **Keep the result editable.** Receive an `.ai` file you can refine in Illustrator, plus a PDF when you need a print copy.
 - **Review before a large batch.** Inspect an Illustrator-rendered proof and text-fit warnings first.
 - **Process files on your computer.** Routine batch generation uses the local Illustrator worker, without a cloud API key or AI-token consumption.
+
+Read the [card image workflow and engineering details](CARD-IMAGES.md) for image sources, crop controls, template preparation and limits.
 
 ## Who is it for?
 
@@ -54,11 +58,14 @@ The value is the same across these situations: spend less effort repeating text 
 | Illustrator artboard preview | See the source design, zoom in, and pan around it. |
 | Click-to-map fields | Connect an editable artwork label to any Excel column. Clicking a label locates its control and highlights its number. |
 | Single-card batches | Repeat one sample card across the selected page layout. |
+| Optional card photos | Use Excel image URLs/filenames or one shared photo, with Fit/Fill and drag adjustment. |
 | Multiple sections | Assign independent record selections, mappings, headings, and months to different artwork areas. |
 | Native proof rendering | Check actual Illustrator output before generating a larger batch. |
 | Combined output | Get one editable AI document and an optional matching multi-page PDF. |
 | Batch History | Find creation times, download links, page previews, saved folders, and review notes. |
 | Light and dark themes | Choose the appearance that suits your workspace. |
+
+Starting an upload, template analysis, proof, or export shows a toast and brings its progress into view. Section ranges update automatically as soon as both endpoints are valid; Review remains accessible to inspect setup issues, while generation still requires a valid configuration. The Illustrator availability badge keeps its neutral appearance with a light-green pulsing dot, respecting reduced-motion preferences.
 
 Generation follows the original worksheet order, even when the preview is sorted differently. **Record 1 means the first participant after the header.** Original Excel row numbers are retained; blank spacers and repeated headers are excluded from participant numbering.
 

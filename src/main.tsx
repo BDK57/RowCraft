@@ -7,4 +7,5 @@ import './styles/workspace-ui.css';
 import './styles/surface-polish.css';
 import './styles/sidebar-motion.css';
 import './styles/studio-theme.css';
+import './styles/card-images.css';
 createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);

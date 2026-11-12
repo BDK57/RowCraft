@@ -1,0 +1,46 @@
+name: Build macOS DMG (Apple Silicon)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'qa/macos-arm64-*'
+
+permissions:
+  contents: read
+
+jobs:
+  dmg:
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Verify Apple Silicon build host
+        run: node -e "if(process.platform!=='darwin'||process.arch!=='arm64')process.exit(1)"
+      - run: npm ci
+      - run: npm test
+      - name: Build ARM64 DMG
+        run: npm run desktop:dist:mac -- arm64
+      - name: Verify packaged files and signing integrity
+        run: |
+          node scripts/verify-packaged-source.mjs
+          codesign --verify --deep --strict release/mac-arm64/RowCraft.app
+          file release/mac-arm64/RowCraft.app/Contents/MacOS/RowCraft | grep arm64
+          hdiutil verify release/RowCraft-*-mac-arm64.dmg
+          shasum -a 256 release/RowCraft-*-mac-arm64.dmg > release/SHA256SUMS-mac-arm64.txt
+      - name: Upload QA installer
+        uses: actions/upload-artifact@v7
+        with:
+          name: RowCraft-mac-arm64-QA
+          path: |
+            release/RowCraft-*-mac-arm64.dmg
+            release/SHA256SUMS-mac-arm64.txt
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0

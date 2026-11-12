@@ -6,7 +6,8 @@ import assert from 'node:assert/strict';
 import {fileURLToPath} from 'node:url';
 import {packageOutput} from '../server/archives.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-const executable=path.resolve(process.argv.find(arg=>arg.startsWith('--exe='))?.slice(6)||path.join(root,'release','win-unpacked','RowCraft.exe'));
+const packaged=process.platform==='darwin'?path.join(root,'release',process.arch==='arm64'?'mac-arm64':'mac','RowCraft.app','Contents','MacOS','RowCraft'):path.join(root,'release','win-unpacked','RowCraft.exe');
+const executable=path.resolve(process.argv.find(arg=>arg.startsWith('--exe='))?.slice(6)||packaged);
 const dir=path.join(root,'.local','desktop-check',crypto.randomUUID());await fs.mkdir(dir,{recursive:true});
 const env={...process.env,ROWCRAFT_SMOKE_DATA_DIR:dir};
 // Child Chromium processes must run as Electron, even when a caller uses Node mode.

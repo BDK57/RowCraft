@@ -1,20 +1,24 @@
 # RowCraft for Windows
 
+For the Apple Silicon macOS QA build, see [macOS DMG instructions](MACOS.md). Windows packaging commands and data locations below remain unchanged.
+
 The desktop app shares the existing React/Vite frontend, Express API, planners and Illustrator JSX renderer. The browser version remains available with `npm run dev` and `npm run start` after a web build.
 
 ## Install and use
 
 1. Install Adobe Illustrator through Adobe Creative Cloud. The RowCraft installer requires Illustrator's executable and Windows automation registration.
-2. Run `RowCraft-Setup-0.1.0-x64.exe`. Follow the prerequisite and destination pages, then launch RowCraft.
+2. Run `RowCraft-Setup-0.2.1-x64.exe`. Follow the prerequisite and destination pages, then launch RowCraft.
 3. Complete any Adobe sign-in/activation prompts. RowCraft checks the native connection before opening the workspace.
 4. Upload your workbook and artwork, select records, map fields or sections, and generate. Use a ZIP containing one AI file plus its linked images when the design uses external assets.
 5. Download the AI, PDF or ZIP from Batch History. Electron opens a Save dialog. The File menu also opens the local artwork folder.
 
 Node.js is embedded in Electron; no separate Node, npm, Python, API key, or manually started server is needed. Adobe licensing and required Adobe internet checks are separate. This private pilot is unsigned, so Windows may show an unknown-publisher/SmartScreen warning; verify the installer source and SHA-256 before running it. Code signing is required before a polished client release.
 
+For optional image URLs, local folders, shared photos and crop controls, see [Card images](../CARD-IMAGES.md).
+
 ## Local files and upgrades
 
-- Desktop files: `%APPDATA%\RowCraft\data` (uploads, parsed workbooks, templates and jobs).
+- Desktop files: `%APPDATA%\RowCraft\data` (uploads, parsed workbooks, templates, images and jobs).
 - Desktop log: `%APPDATA%\RowCraft\desktop.log`.
 - Browser development data stays in the project's `.local` directory. Existing web history is neither moved nor deleted automatically.
 - The source workbook and artwork are copied into job storage before edits; generated output is saved separately.
@@ -47,4 +51,4 @@ The backend copies `server/illustrator.jsx` out of the packaged resources into a
 
 The NSIS prerequisite page and the runtime use the same PowerShell detection source. The installer checks the registered executable, including nonstandard paths and both registry views. It blocks missing/broken installations and offers Adobe setup plus retry; silent installation exits with code 3 when the prerequisite is missing. Runtime additionally tests the actual COM connection. Presence alone is not a license/activation check.
 
-For releases, record the Illustrator and Windows versions actually tested. This pilot targets Windows x64. macOS/Linux, cloud rendering, public auto-updates and Adobe redistribution are outside this build.
+For releases, record the Illustrator and operating-system versions actually tested. The verified pilot targets Windows x64; the new macOS implementation still requires Mac build and Illustrator QA. Linux, cloud rendering, public auto-updates and Adobe redistribution are outside this build.

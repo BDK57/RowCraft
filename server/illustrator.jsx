@@ -13,6 +13,23 @@
     function inside(bounds,rect){var x=(bounds[0]+bounds[2])/2,y=(bounds[1]+bounds[3])/2;return x>=rect[0]&&x<=rect[2]&&y<=rect[1]&&y>=rect[3];}
     function png(doc,filename){var opts=new ExportOptionsPNG24();opts.artBoardClipping=true;opts.horizontalScale=100;opts.verticalScale=100;opts.transparency=false;app.redraw();doc.exportFile(File(filename),ExportType.PNG24,opts);if(!File(filename).exists){var capture=new ImageCaptureOptions();capture.resolution=144;capture.antiAliasing=true;capture.transparency=false;capture.matte=true;doc.imageCapture(File(filename),doc.artboards[doc.artboards.getActiveArtboardIndex()].artboardRect,capture);}if(!File(filename).exists)throw Error('Illustrator did not write the artwork preview. Please retry the export.');}
     function color(value){var c=new RGBColor();c.red=value;c.green=value;c.blue=value;return c;}
+    function clippingPath(group){if(group.typename!=='GroupItem'||!group.clipped)return null;for(var i=0;i<group.pageItems.length;i++){var p=group.pageItems[i];if(p.typename==='PathItem'&&p.clipping)return p;if(p.typename==='CompoundPathItem'&&p.pathItems.length&&p.pathItems[0].clipping)return p;}return null;}
+    function photoBounds(item){var clip=clippingPath(item);return clip?clip.geometricBounds:item.geometricBounds;}
+    function hasText(item){if(item.typename==='TextFrame')return true;if(item.typename==='GroupItem')for(var i=0;i<item.pageItems.length;i++)if(hasText(item.pageItems[i]))return true;return false;}
+    function maskSVG(mask,bounds){
+        if(!mask)return '';var paths=mask.typename==='CompoundPathItem'?mask.pathItems:[mask],out='',w=bounds[2]-bounds[0],h=bounds[1]-bounds[3];
+        function xy(point){return ((point[0]-bounds[0])/w).toFixed(6)+' '+((bounds[1]-point[1])/h).toFixed(6);}
+        for(var p=0;p<paths.length;p++){var points=paths[p].pathPoints;if(!points.length)continue;out+='M'+xy(points[0].anchor);var total=paths[p].closed?points.length:points.length-1;for(var j=0;j<total;j++){var a=points[j],b=points[(j+1)%points.length];out+=' C'+xy(a.rightDirection)+' '+xy(b.leftDirection)+' '+xy(b.anchor);}if(paths[p].closed)out+=' Z';}return out;
+    }
+    function photoTargets(group,rect,w,h){
+        var result=[],cb=group.geometricBounds,cw=cb[2]-cb[0],ch=cb[1]-cb[3];
+        function walk(parent,chain){for(var i=0;i<parent.pageItems.length;i++){
+            var item=parent.pageItems[i];if(item.parent!==parent)continue;var route=chain.concat([i]),b=photoBounds(item),iw=b[2]-b[0],ih=b[1]-b[3];
+            var image=item.typename==='PlacedItem'||item.typename==='RasterItem',art=item.typename==='GroupItem'&&!hasText(item)&&iw>=cw*.25&&ih>=ch*.12&&iw<=cw*1.01&&ih<=ch*.9;
+            if((image||art)&&iw>1&&ih>1){result.push({id:'photo-'+route.join('-'),path:route,name:item.name||('Photo area '+(result.length+1)),kind:image?'image':'artwork',x:(b[0]-rect[0])/w,y:(rect[1]-b[1])/h,width:iw/w,height:ih/h,clipPath:maskSVG(clippingPath(item),b)});}
+            else if(item.typename==='GroupItem')walk(item,route);
+        }}walk(group,[]);return result;
+    }
     function cardGroups(doc,rect,w,h,targets){
         var cards=[],groups=[],i,j,p,b,found;
         for(i=0;i<targets.length;i++){
@@ -30,7 +47,7 @@
         for(i=0;i<cards.length;i++){var c=cards[i],family=-1;for(j=0;j<families.length;j++){var f=families[j];if(Math.abs(c.width-f.width)*w<2&&Math.abs(c.height-f.height)*h<2&&c.targetIds.length===f.targetIds.length){family=j;break;}}if(family<0){family=families.length;families.push(c);}c.family='family-'+family;}
         // Repeated rows of cards are separate from the three static footer offers.
         var counts={},hasGrid=false,filtered=[];for(i=0;i<cards.length;i++){var familyKey=cards[i].family;counts[familyKey]=(counts[familyKey]||0)+1;if(counts[familyKey]>=4)hasGrid=true;}
-        for(i=0;i<cards.length;i++)if(!hasGrid||counts[cards[i].family]>=4)filtered.push(cards[i]);
+        for(i=0;i<cards.length;i++)if(!hasGrid||counts[cards[i].family]>=4){cards[i].photos=photoTargets(groups[i],rect,w,h);filtered.push(cards[i]);}
         return filtered;
     }
     function inspect(request){
@@ -63,7 +80,32 @@
         for(i=items.length-1;i>=0;i--){var before=items[i].geometricBounds,copy=items[i].duplicate(dest.layers[0],ElementPlacement.PLACEATBEGINNING),after=copy.geometricBounds;copy.translate(before[0]-rect[0]-after[0],before[1]-rect[1]+h-after[1]);}
         return dest;
     }
-    function findGroup(doc,name){for(var i=0;i<doc.groupItems.length;i++)if(doc.groupItems[i].name===name)return doc.groupItems[i];return null;}
+    function findGroup(doc,name){for(var i=0;i<doc.groupItems.length;i++)if(doc.groupItems[i].name===name)return doc.groupItems[i];if(doc.typename==='GroupItem')for(i=0;i<doc.groupItems.length;i++){var nested=findGroup(doc.groupItems[i],name);if(nested)return nested;}return null;}
+    function tagPhoto(card,photo){
+        if(!photo)return;var item=card,route=photo.target.path;
+        for(var i=0;i<route.length;i++){item=item.pageItems[route[i]];if(!item)throw Error('The photo area changed. Analyze this template again.');}
+        if(hasText(item))throw Error('Choose a photo area without text.');
+        var wrapper=card.groupItems.add();wrapper.name='__RC_PHOTO';wrapper.move(item,ElementPlacement.PLACEBEFORE);item.move(wrapper,ElementPlacement.PLACEATEND);
+    }
+    function replacePhoto(card,photo,record,warnings){
+        if(!photo||!photo.paths||!photo.paths[record.id])return;
+        var wrapper=findGroup(card,'__RC_PHOTO'),replacement=null;
+        try{
+            if(!wrapper||!wrapper.pageItems.length)throw Error('The photo area is missing');
+            var original=wrapper.pageItems[0],bounds=photoBounds(original),fw=bounds[2]-bounds[0],fh=bounds[1]-bounds[3],mask=clippingPath(original);
+            replacement=wrapper.groupItems.add();replacement.name='__RC_REPLACEMENT';
+            var document=card;while(document.typename!=='Document')document=document.parent;
+            var placed=document.placedItems.add();placed.file=File(photo.paths[record.id]);placed.move(replacement,ElementPlacement.PLACEATEND);
+            var a=photo.overrides&&photo.overrides[record.id]||photo.adjustment||{fit:'fill',x:.5,y:.5,zoom:1};
+            var iw=placed.width,ih=placed.height,scale=(a.fit==='fit'?Math.min(fw/iw,fh/ih):Math.max(fw/iw,fh/ih))*a.zoom;
+            placed.width=iw*scale;placed.height=ih*scale;placed.position=[bounds[0]+(fw-placed.width)*a.x,bounds[1]-(fh-placed.height)*a.y];
+            var matte=replacement.pathItems.rectangle(bounds[1],bounds[0],fw,fh);matte.fillColor=color(255);matte.stroked=false;matte.move(replacement,ElementPlacement.PLACEATEND);
+            var clip=mask?mask.duplicate(replacement,ElementPlacement.PLACEATBEGINNING):replacement.pathItems.rectangle(bounds[1],bounds[0],fw,fh);
+            if(clip.typename==='CompoundPathItem'){for(var k=0;k<clip.pathItems.length;k++){clip.pathItems[k].filled=false;clip.pathItems[k].stroked=false;}clip.pathItems[0].clipping=true;}
+            else{clip.filled=false;clip.stroked=false;clip.clipping=true;}
+            clip.move(replacement,ElementPlacement.PLACEATBEGINNING);replacement.clipped=true;placed.embed();original.remove();
+        }catch(error){if(replacement)try{replacement.remove();}catch(ignorePhoto){}warnings.push('Record '+record.record+': image could not be placed; original kept. '+error.message);}
+    }
     function findText(group,name){for(var i=0;i<group.pageItems.length;i++){var p=group.pageItems[i];if(p.typename==='TextFrame'&&p.name===name)return p;if(p.typename==='GroupItem'){var t=findText(p,name);if(t)return t;}}return null;}
     function paint(c){if(c.typename==='NoColor')return ['None'];if(c.typename==='RGBColor')return ['RGB',c.red,c.green,c.blue];if(c.typename==='CMYKColor')return ['CMYK',c.cyan,c.magenta,c.yellow,c.black];if(c.typename==='GrayColor')return ['Gray',c.gray];if(c.typename==='SpotColor')return ['Spot',c.spot.name,c.tint];return [c.typename];}
     function textStyle(tf){var a=tf.characters.length?tf.characters[0].characterAttributes:tf.textRange.characterAttributes;return {font:a.textFont.name,size:a.size,horizontalScale:a.horizontalScale,verticalScale:a.verticalScale,tracking:a.tracking,fill:paint(a.fillColor),stroke:paint(a.strokeColor),strokeWeight:a.strokeWeight};}
@@ -101,6 +143,7 @@
             group.name='__CS_SLOT_'+slot.id;
         }
         for(i=0;i<request.mappings.length;i++)source.textFrames[request.mappings[i].index].name='__CS_FIELD_'+i;
+        if(request.photo)tagPhoto(findGroup(source,'__CS_SLOT_'+plan.cardId),request.photo);
         var cover=cloneCover(source,request.artboard),sample=findGroup(cover,'__CS_SLOT_'+plan.cardId);
         if(!sample)throw Error('The selected sample card could not be copied.');
         var specimen=sample.duplicate(cover.layers[0],ElementPlacement.PLACEATBEGINNING);specimen.name='__CS_SPECIMEN';
@@ -126,6 +169,7 @@
                     var after=tf.geometricBounds;if(tf.kind===TextType.POINTTEXT&&after[2]-after[0]>maxWidth){if(request.textFit==='condense'){tf.textRange.characterAttributes.horizontalScale*=maxWidth/(after[2]-after[0]);warnings.push('Record '+record.record+': '+m.label+' was condensed to fit.');}else warnings.push('Record '+record.record+': '+m.label+' exceeds the available width; original font, size, weight and scale were preserved.');}
                     if(tf.kind===TextType.AREATEXT)warnings.push('Record '+record.record+': check area-text overflow for '+m.label+'.');
                 }
+                replacePhoto(card,request.photo,record,warnings);
                 assignments.push({record:record.record,excelRow:record.excelRow,page:i+1,slot:j+1});
             }
             progress(i+1,plan.pages,'Filled page '+(i+1)+' of '+plan.pages+' with selected cards');
@@ -160,6 +204,7 @@
             for(j=0;j<section.mappings.length;j++)source.textFrames[section.mappings[j].index].name='__CS_FIELD_'+j;
         }
         // Section headings/months are independent and constant on every continuation page.
+        for(i=0;i<plan.sections.length;i++)if(plan.sections[i].photo)tagPhoto(findGroup(source,'__CS_SECTION_'+i+'_SLOT_'+plan.sections[i].sample.id),plan.sections[i].photo);
         for(i=0;i<plan.sections.length;i++)for(j=0;j<plan.sections[i].labels.length;j++){
             var label=plan.sections[i].labels[j],labelText=source.textFrames[label.index],bounds=labelText.geometricBounds,maxLabelWidth=Math.max(8,bounds[2]-bounds[0]);
             replaceText(labelText,label.value);var labelAfter=labelText.geometricBounds;
@@ -201,6 +246,7 @@
                                 if(tf.kind===TextType.POINTTEXT&&after[2]-after[0]>maxWidth){if(request.textFit==='condense'){tf.textRange.characterAttributes.horizontalScale*=maxWidth/(after[2]-after[0]);warnings.push(section.name+', record '+record.record+': '+m.label+' was condensed to fit.');}else warnings.push(section.name+', record '+record.record+': '+m.label+' exceeds the available width; original typography was preserved.');}
                                 if(tf.kind===TextType.AREATEXT)warnings.push(section.name+', record '+record.record+': check area-text overflow for '+m.label+'.');
                             }
+                            replacePhoto(card,section.photo,record,warnings);
                             assignments.push({sectionId:section.id,record:record.record,excelRow:record.excelRow,page:n+1,slot:j+1});
                         }
                     }
@@ -215,7 +261,13 @@
             return {count:plan.count,pages:plan.pageCount,previews:previews,assignments:assignments,warnings:warnings};
         }finally{if(cover)try{cover.close(SaveOptions.DONOTSAVECHANGES);}catch(ignoreSectionClose){}if(combined)dest=combined;}
     }
-    function verify(request){source=app.open(File(request.source));var texts=[],records=[],cardData=[],templateStyles=[];for(var i=0;i<source.textFrames.length;i++)texts.push(source.textFrames[i].contents);for(i=0;i<(request.mappings||[]).length;i++)templateStyles.push(textStyle(source.textFrames[request.mappings[i].index]));for(i=0;i<source.groupItems.length;i++)if(/^Record \d+( \| Section .+)?$/.test(source.groupItems[i].name)){var g=source.groupItems[i],fields=[],styles=[];for(var j=0;j<100;j++){var tf=findText(g,'__CS_FIELD_'+j);if(!tf)break;fields.push(tf.contents);styles.push(textStyle(tf));}records.push(g.name);cardData.push({name:g.name,fields:fields,styles:styles});}return {pages:source.artboards.length,records:records,cardData:cardData,templateStyles:templateStyles,texts:texts,linkedImages:source.placedItems.length};}
+    function verifyPhoto(card){
+        var wrapper=findGroup(card,'__RC_PHOTO'),replacement=wrapper?findGroup(wrapper,'__RC_REPLACEMENT'):null;
+        if(!replacement)return {replaced:false};
+        var mask=clippingPath(replacement),raster=null;for(var i=0;i<replacement.pageItems.length;i++)if(replacement.pageItems[i].typename==='RasterItem'){raster=replacement.pageItems[i];break;}
+        return {replaced:true,frame:mask?mask.geometricBounds:null,image:raster?raster.geometricBounds:null,embedded:!!raster};
+    }
+    function verify(request){source=app.open(File(request.source));var texts=[],records=[],cardData=[],templateStyles=[];for(var i=0;i<source.textFrames.length;i++)texts.push(source.textFrames[i].contents);for(i=0;i<(request.mappings||[]).length;i++)templateStyles.push(textStyle(source.textFrames[request.mappings[i].index]));for(i=0;i<source.groupItems.length;i++)if(/^Record \d+( \| Section .+)?$/.test(source.groupItems[i].name)){var g=source.groupItems[i],fields=[],styles=[];for(var j=0;j<100;j++){var tf=findText(g,'__CS_FIELD_'+j);if(!tf)break;fields.push(tf.contents);styles.push(textStyle(tf));}records.push(g.name);cardData.push({name:g.name,fields:fields,styles:styles,photo:verifyPhoto(g)});}return {pages:source.artboards.length,records:records,cardData:cardData,templateStyles:templateStyles,texts:texts,linkedImages:source.placedItems.length};}
     try{
         var request=parse(read(root.fsName+'/request.json'));app.userInteractionLevel=UserInteractionLevel.DONTDISPLAYALERTS;
         // Work on a new path so an existing, unsaved Illustrator document is never reused or closed.

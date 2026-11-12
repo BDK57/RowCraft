@@ -10,19 +10,12 @@ import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {Badge} from '@/components/ui/badge';
 import {ChoiceSelect} from '@/components/choice-select';
+import {SectionRows} from '@/components/section-records';
+import {PhotoEditor,PhotoFrame,useResolvedPhoto} from '@/components/card-images';
 
 const clean=(text:string)=>text.replace(/[\r\n]+/g,' ')||'(empty text)';
 type Box=ArtworkSection['box'];
 
-function SectionRows({s,section,onChange}:{s:Studio;section:ArtworkSection;onChange:(ids:string[])=>void}){
- const records=s.sheet?.rows.filter(row=>section.recordIds.includes(row.id))||[];
- const [from,setFrom]=useState(records[0]?.record||1),[to,setTo]=useState(records.at(-1)?.record||5),[error,setError]=useState('');
- function apply(){
-  if(!s.sheet||!Number.isInteger(from)||!Number.isInteger(to)||from<1||to<from||to>s.sheet.rows.length){setError(`Choose a range from 1 through ${s.sheet?.rows.length||0}.`);return;}
-  onChange(s.sheet.rows.slice(from-1,to).map(row=>row.id));setError('');
- }
- return <div className="section-records"><Label>Excel records for this section</Label><div className="section-range"><Input type="number" min={1} aria-label="Section record from" value={from} onChange={e=>setFrom(Number(e.target.value))}/><span>to</span><Input type="number" min={1} aria-label="Section record to" value={to} onChange={e=>setTo(Number(e.target.value))}/><Button variant="secondary" size="sm" disabled={s.running} onClick={apply}>Apply</Button></div>{error&&<p role="alert" className="text-destructive text-xs">{error}</p>}<p className="text-xs text-muted-foreground">Inclusive participant numbers, excluding headers. {records.length} cards selected.</p><Button variant="ghost" size="sm" disabled={s.running||!s.selectedRows.length} onClick={()=>{onChange(s.selectedRows.map(row=>row.id));setFrom(s.selectedRows[0]?.record||1);setTo(s.selectedRows.at(-1)?.record||1);setError('');}}>Use selection from People</Button></div>;
-}
 
 export function SectionEditor({s}:{s:Studio}){
  const [activeId,setActiveId]=useState(s.sections.find(section=>section.artboard===s.boardIndex)?.id||''),[drawing,setDrawing]=useState(false),[draft,setDraft]=useState<Box|null>(null),[pickLabel,setPickLabel]=useState<SectionLabel['role']|null>(null),[drawError,setDrawError]=useState('');
@@ -33,6 +26,11 @@ export function SectionEditor({s}:{s:Studio}){
  const slots=sectionCards(board,active?.artboard===s.boardIndex?active.box:undefined),sample=slots.find(card=>card.id===active?.cardId);
  const targets=board?.targets.filter(target=>sample?.targetIds.includes(target.id))||[];
  const pageTargets=board?.targets.filter(target=>!board.cards?.some(card=>card.targetIds.includes(target.id)))||[];
+ const [photoRows,setPhotoRows]=useState<Record<string,string>>({});
+ const photoRowsInSection=s.sheet?.rows.filter(row=>active?.recordIds.includes(row.id))||[];
+ const photoRow=photoRowsInSection.find(row=>row.id===photoRows[activeId])||photoRowsInSection[0];
+ const photoTarget=sample?.photos?.find(p=>p.id===active?.photoTargetId)||sample?.photos?.[0];
+ const resolvedPhoto=useResolvedPhoto(s,photoRow);
  const first=s.sheet?.rows.find(row=>active?.recordIds.includes(row.id));
  const columns=s.sheet?.columns.map((label,index)=>({value:String(index),label}))||[];
  const onBoard=s.sections.filter(section=>section.artboard===s.boardIndex);
@@ -82,6 +80,8 @@ export function SectionEditor({s}:{s:Studio}){
       <img className="artboard-image" src={board.preview} alt="Illustrator section preview" draggable={false} style={{width:'100%',height:'100%',display:'block',pointerEvents:'none'}}/>
       {onBoard.map(section=><div key={section.id} className={`section-region ${section.id===activeId?'active':''}`} style={{left:`${section.box.x*100}%`,top:`${section.box.y*100}%`,width:`${section.box.width*100}%`,height:`${section.box.height*100}%`}}><button type="button" disabled={drawing} onClick={()=>choose(section)}>{section.name}</button></div>)}
       {!drawing&&active?.artboard===s.boardIndex&&(pickLabel?pageTargets:targets).map(target=><button key={target.id} type="button" className={`text-target ${s.focus===target.id?'focused':''}`} aria-label={`${pickLabel?'Choose '+pickLabel+' label':'Map section field'}: ${clean(target.text)}`} style={{position:'absolute',left:`${target.x*100}%`,top:`${target.y*100}%`,width:`${Math.max(target.width,.003)*100}%`,height:`${Math.max(target.height,.003)*100}%`,zIndex:5}} onClick={()=>pickLabel?assignLabel(target.id):locate(target.id)}/>)}
+      {!drawing&&!pickLabel&&active?.artboard===s.boardIndex&&s.images.source!=='keep'&&sample?.photos?.map(photo=><button key={photo.id} type="button" className="photo-target" aria-label={`Adjust section ${photo.name}`} aria-pressed={photo.id===photoTarget?.id} style={{left:`${photo.x*100}%`,top:`${photo.y*100}%`,width:`${photo.width*100}%`,height:`${photo.height*100}%`,pointerEvents:resolvedPhoto.asset&&photo.id===photoTarget?.id?'none':'auto'}} onClick={()=>{update({photoTargetId:photo.id});locate('__photo');}}/>)}
+      {!drawing&&!pickLabel&&active?.artboard===s.boardIndex&&s.images.source!=='keep'&&photoTarget&&resolvedPhoto.asset&&photoRow&&<PhotoFrame asset={resolvedPhoto.asset} target={photoTarget} value={s.images.adjustment(active.id,photoTarget.id,photoRow.id)} onChange={value=>s.images.adjust(active.id,photoTarget.id,photoRow.id,value)} disabled={s.running} style={{position:'absolute',zIndex:5,left:`${photoTarget.x*100}%`,top:`${photoTarget.y*100}%`,width:`${photoTarget.width*100}%`,height:`${photoTarget.height*100}%`}}/>}
       {drawing&&<div className="section-draw-surface" role="group" aria-label="Draw section on artboard" tabIndex={0} onKeyDown={event=>{if(event.key==='Escape'){setDrawing(false);start.current=null;setDraft(null);}}} onPointerDown={e=>{if(e.button!==0)return;e.preventDefault();start.current=point(e);e.currentTarget.setPointerCapture(e.pointerId);setDraft({...start.current,width:0,height:0});}} onPointerMove={move} onPointerUp={end} onPointerCancel={()=>{start.current=null;setDraft(null);}}>{draft&&<div className="section-draft" style={{left:`${draft.x*100}%`,top:`${draft.y*100}%`,width:`${draft.width*100}%`,height:`${draft.height*100}%`}}/>}</div>}
      </div>
     </ZoomCanvas><div className="canvas-footer"><span>Artboard {s.boardIndex+1} · {Math.round(board.width)} × {Math.round(board.height)} pt</span><span>{onBoard.length} sections</span></div>
@@ -90,8 +90,9 @@ export function SectionEditor({s}:{s:Studio}){
    <aside className="work-panel mapping-inspector section-inspector">{active?.artboard===s.boardIndex?<>
     <div className="inspector-heading"><h3>{active.name}</h3><p>{slots.length} positions per page · {Math.ceil(active.recordIds.length/(slots.length||1))} {active.recordIds.length<=slots.length?'page':'pages'} for this section</p></div>
     <div className="section-name"><Label htmlFor="section-name">Section name</Label><Input id="section-name" value={active.name} maxLength={80} onChange={e=>update({name:e.target.value})}/></div>
-    <SectionRows key={active.id} s={s} section={active} onChange={recordIds=>update({recordIds})}/>
-    <div className="section-sample"><Label>Sample card to repeat</Label><ChoiceSelect label="Section sample card" value={active.cardId} options={slots.map((card,i)=>({value:card.id,label:`Card ${i+1} · ${card.targetIds.length} fields`}))} onChange={cardId=>{update({cardId,mappings:[]});s.setFocus(null);}}/><p className="text-xs text-muted-foreground">Preview: {first?.values[s.sheet?.columns.findIndex(column=>/shop|first.?name|name/i.test(column))??0]||first?.values[0]||'No people selected'}</p></div>
+    <SectionRows key={active.id} s={s} section={active} onChange={(recordIds,rangeError)=>update({recordIds,rangeError})}/>
+    <div className="section-sample"><Label>Sample card to repeat</Label><ChoiceSelect label="Section sample card" value={active.cardId} options={slots.map((card,i)=>({value:card.id,label:`Card ${i+1} · ${card.targetIds.length} fields`}))} onChange={cardId=>{update({cardId,mappings:[],photoTargetId:undefined});s.setFocus(null);}}/><p className="text-xs text-muted-foreground">Preview: {first?.values[s.sheet?.columns.findIndex(column=>/shop|first.?name|name/i.test(column))??0]||first?.values[0]||'No people selected'}</p></div>
+    {s.images.source!=='keep'&&<div ref={node=>register('__photo',node)} className="space-y-3"><Label>Photo preview person</Label><ChoiceSelect label="Section photo preview person" value={photoRow?.id||''} options={photoRowsInSection.map(row=>({value:row.id,label:`Record ${row.record} · ${row.values[0]}`}))} onChange={id=>setPhotoRows(current=>({...current,[activeId]:id}))}/><PhotoEditor s={s} card={sample} scope={active.id} row={photoRow} targetId={photoTarget?.id} onTarget={id=>update({photoTargetId:id})} resolved={resolvedPhoto}/></div>}
     <h4 className="section-subheading">Card fields</h4>
     <div className="field-list">{targets.map((target,index)=>{const mapping=active.mappings.find(m=>m.targetId===target.id);return <article key={target.id} ref={node=>register(target.id,node)} onFocusCapture={()=>s.setFocus(target.id)} data-field-id={target.id} data-navigating={flash===target.id||undefined} className={`mapping-row ${s.focus===target.id?'focused':''}`}><button type="button" className="mapping-field-heading" onClick={()=>s.setFocus(target.id)} aria-current={s.focus===target.id?'true':undefined}><span className="field-number">{index+1}</span><strong>{clean(target.text)}</strong>{mapping&&<Check className="size-4"/>}</button><ChoiceSelect label={`Section Excel column for ${clean(target.text)}`} value={String(mapping?.column??-1)} options={[{value:'-1',label:'Keep original text'},...columns]} disabled={s.running} onChange={value=>{s.setFocus(target.id);update({mappings:[...active.mappings.filter(m=>m.targetId!==target.id),...(Number(value)<0?[]:[{kind:'text' as const,targetId:target.id,column:Number(value)}])]});}}/><div className="mapping-value"><span className="text-xs text-muted-foreground">{mapping?'Excel preview':'Original text'}</span><p>{mapping?first?.values[mapping.column]??'(empty cell)':clean(target.text)}</p></div></article>;})}</div>
     <h4 className="section-subheading">Section heading & month</h4>
@@ -100,6 +101,6 @@ export function SectionEditor({s}:{s:Studio}){
    </>:<div className="mapping-empty"><Scan className="size-8"/><h3>Define a section</h3><p>Draw a box around its cards, or select a section above to edit it.</p><Button variant="outline" onClick={()=>setDrawing(true)}>Draw a section</Button></div>}</aside>
   </div>
   {s.sectionReview.error&&<p className="section-feedback" role="status">{s.sectionReview.error}</p>}
-  <footer className="workflow-footer"><span>{s.sections.length} {s.sections.length===1?'section':'sections'} · {s.batchCount} cards · {s.batchPages||'—'} {s.batchPages===1?'page':'pages'} in one AI file</span><div className="flex gap-2"><Button variant="outline" disabled={!s.ready||s.running||!s.native} onClick={()=>void s.generate(true)}>Preview section pages</Button><Button disabled={!s.ready||s.running} onClick={()=>s.setView('export')}>Review & export<ArrowRight/></Button></div></footer>
+  <footer className="workflow-footer"><span>{s.sections.length} {s.sections.length===1?'section':'sections'} · {s.batchCount} cards · {s.batchPages||'—'} {s.batchPages===1?'page':'pages'} in one AI file</span><div className="flex gap-2"><Button variant="outline" disabled={!s.ready||s.running||!s.native} onClick={()=>void s.generate(true)}>Preview section pages</Button><Button disabled={!s.canReview||s.running} onClick={()=>s.setView('export')}>Review & export<ArrowRight/></Button></div></footer>
  </div>;
 }

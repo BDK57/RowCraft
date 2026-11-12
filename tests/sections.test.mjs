@@ -1,11 +1,17 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {planSections,sectionCards,sectionAssignments} from '../server/sections.mjs';
+import {planSections,sectionCards,sectionAssignments,sectionRange} from '../server/sections.mjs';
 
 const cards=Array.from({length:4},(_,i)=>({id:`card-${i}`,groupIndex:i,family:'person',x:.1+(i%2)*.4,y:.2+Math.floor(i/2)*.35,width:.3,height:.25,targetIds:[`name-${i}`]}));
 const board={width:612,height:1008,cards,targets:[...cards.map(c=>({id:c.targetIds[0],index:c.groupIndex,text:'Name'})),{id:'heading',index:4,text:'Heading'},{id:'month',index:5,text:'Month'},{id:'heading-2',index:6,text:'Heading 2'},{id:'month-2',index:7,text:'Month 2'}]};
 const template={artboards:[board,{...board,width:800,height:600}]},workbook={sheets:[{name:'People',columns:['Name','Month'],rows:Array.from({length:40},(_,i)=>({id:`row-${i}`,record:i+1,excelRow:i+2,values:[`Person ${i+1}`,'Nov 2026']}))}]};
 function section(id,first,last,bottom=false,artboard=0){return {id,name:id,artboard,box:{x:0,y:bottom?.5:.1,width:1,height:.35},cardId:`card-${bottom?2:0}`,recordIds:workbook.sheets[0].rows.slice(first-1,last).map(r=>r.id),mappings:[{kind:'text',targetId:`name-${bottom?2:0}`,column:0}],labels:[{role:'heading',targetId:bottom?'heading-2':'heading',source:'literal',value:`Winners ${id}`,column:0},{role:'month',targetId:bottom?'month-2':'month',source:'column',column:1,value:''}]};}
+
+test('section range validates drafts and never exports the last selection while the visible range is invalid',()=>{
+ const sheet=workbook.sheets[0];assert.deepEqual(sectionRange(sheet,'5','10').recordIds,sheet.rows.slice(4,10).map(r=>r.id));
+ for(const [from,to]of [['','5'],['0','5'],['5','4'],['1','41'],['1.5','3']])assert.ok(sectionRange(sheet,from,to).error);
+ assert.throws(()=>planSections(template,workbook,'People',[{...section('A',1,5),rangeError:'Choose a complete range.'}]),/complete range/);
+});
 
 test('two sections use independent inclusive row ranges, headings and months on a shared page',()=>{
  const a=section('first',1,10),b=section('second',20,30,true),plan=planSections(template,workbook,'People',[a,b]);

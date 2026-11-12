@@ -24,6 +24,7 @@ assert.equal(output.pages,smoke.output.pages);assert.equal(output.records.length
 for(const row of request.records){
  const card=output.cardData.find(item=>item.name==='Record '+row.record);assert.ok(card,'Missing record '+row.record);
  assert.deepEqual(card.fields,request.mappings.map(mapping=>row.values[mapping.column]));assert.deepEqual(card.styles,original.templateStyles,'Original typography changed');
+ if(request.photo){assert.equal(card.photo.replaced,!!request.photo.paths[row.id],'Unexpected photo replacement result');if(card.photo.replaced)assert.equal(card.photo.embedded,true,'Replacement photo was not embedded');}
 }
-const result={ok:true,cards:output.records.length,pages:output.pages,linkedImages:output.linkedImages,typographyPreserved:true};
+const result={ok:true,cards:output.records.length,pages:output.pages,linkedImages:output.linkedImages,typographyPreserved:true,replacedPhotos:output.cardData.filter(card=>card.photo?.replaced).length};
 await fs.writeFile(path.join(check,'native-verification.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result,null,2));

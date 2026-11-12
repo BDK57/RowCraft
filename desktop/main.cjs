@@ -6,7 +6,7 @@ const {isLocalNavigation,isAdobeLink,isExportDownload,downloadName}=require('./p
 
 const smoke=process.argv.includes('--rowcraft-smoke');
 if(smoke&&process.env.ROWCRAFT_SMOKE_DATA_DIR)app.setPath('userData',path.resolve(process.env.ROWCRAFT_SMOKE_DATA_DIR));
-app.setName('RowCraft');app.setAppUserModelId('com.rowcraft.desktop');
+app.setName('RowCraft');if(process.platform==='win32')app.setAppUserModelId('com.rowcraft.desktop');
 let window,worker,origin,quitting=false,waitForJobs=false,closePending=false,closeDialog=false;
 const haveLock=app.requestSingleInstanceLock();
 if(!haveLock){app.quit();}else{
@@ -60,8 +60,8 @@ async function start(){
   event.preventDefault();
   requestClose();
  });
- const fileMenu={label:'File',submenu:[{label:'Open saved artwork folder',click:()=>void shell.openPath(path.join(app.getPath('userData'),'data','jobs'))},{label:'Open Downloads',click:()=>void shell.openPath(app.getPath('downloads'))},{type:'separator'},{label:'Exit',accelerator:'Alt+F4',click:()=>window.close()}]};
- Menu.setApplicationMenu(Menu.buildFromTemplate([fileMenu,{label:'Edit',submenu:[{role:'undo'},{role:'redo'},{type:'separator'},{role:'cut'},{role:'copy'},{role:'paste'},{role:'selectAll'}]},{label:'View',submenu:[{role:'resetZoom'},{role:'zoomIn'},{role:'zoomOut'},{role:'togglefullscreen'},...(!app.isPackaged?[{role:'toggleDevTools'}]:[])]},{label:'Help',submenu:[{label:'About RowCraft',click:()=>void dialog.showMessageBox(window,{title:'RowCraft',message:`RowCraft ${app.getVersion()}`,detail:`Illustrator ${connection.version}\nNode.js ${process.versions.node} (included)\n\nFiles stay on this computer.\nData: ${app.getPath('userData')}`})}]}]));
+ const fileMenu={label:'File',submenu:[{label:'Open saved artwork folder',click:()=>void shell.openPath(path.join(app.getPath('userData'),'data','jobs'))},{label:'Open Downloads',click:()=>void shell.openPath(app.getPath('downloads'))},{type:'separator'},{label:process.platform==='darwin'?'Close window':'Exit',accelerator:process.platform==='darwin'?'Cmd+W':'Alt+F4',click:()=>window.close()}]};
+ Menu.setApplicationMenu(Menu.buildFromTemplate([...(process.platform==='darwin'?[{role:'appMenu'}]:[]),fileMenu,{label:'Edit',submenu:[{role:'undo'},{role:'redo'},{type:'separator'},{role:'cut'},{role:'copy'},{role:'paste'},{role:'selectAll'}]},{label:'View',submenu:[{role:'resetZoom'},{role:'zoomIn'},{role:'zoomOut'},{role:'togglefullscreen'},...(!app.isPackaged?[{role:'toggleDevTools'}]:[])]},...(process.platform==='darwin'?[{role:'windowMenu'}]:[]),{label:'Help',submenu:[{label:'About RowCraft',click:()=>void dialog.showMessageBox(window,{title:'RowCraft',message:`RowCraft ${app.getVersion()}`,detail:`Illustrator ${connection.version}\nNode.js ${process.versions.node} (included)\n\nFiles stay on this computer.\nData: ${app.getPath('userData')}`})}]}]));
  await window.loadURL(origin);
  if(smoke){await require('./smoke.cjs').run({app,window,origin,connection});shutdown();}
  else{window.show();window.focus();}

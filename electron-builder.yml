@@ -32,3 +32,27 @@ nsis:
   runAfterFinish: true
   deleteAppDataOnUninstall: false
   include: desktop/installer.nsh
+mac:
+  target:
+    - target: dmg
+      arch: [arm64]
+  category: public.app-category.productivity
+  icon: desktop/assets/icon.png
+  artifactName: RowCraft-${version}-mac-${arch}.${ext}
+  # Internal pilot: ad-hoc signed, not Apple Developer ID signed/notarized.
+  identity: '-'
+  hardenedRuntime: true
+  notarize: false
+  entitlements: desktop/assets/entitlements.mac.plist
+  entitlementsInherit: desktop/assets/entitlements.mac.plist
+  extendInfo:
+    NSAppleEventsUsageDescription: RowCraft controls Adobe Illustrator to preview and personalize your artwork locally.
+dmg:
+  title: RowCraft ${version}
+  contents:
+    - x: 130
+      y: 180
+    - x: 410
+      y: 180
+      type: link
+      path: /Applications

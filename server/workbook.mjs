@@ -30,10 +30,10 @@ export function normalizeSheet(name,raw){
   const seen=new Map(),original=Array.from({length:width},(_,i)=>header[i]||'');
   const columns=original.map((v,i)=>{const base=v.trim()||`Column ${i+1}`;const n=(seen.get(base)||0)+1;seen.set(base,n);return n===1?base:`${base} (${n})`;});
   const rows=[],skippedHeaders=[];
-  for(const [excelRow,data] of raw.slice(1)){
+  for(const [excelRow,data,imageRefs] of raw.slice(1)){
     const values=Array.from({length:width},(_,i)=>data[i]||'');
     if(values.every((v,i)=>v.trim()===original[i].trim())){skippedHeaders.push(excelRow);continue;}
-    rows.push({id:`${name}:${excelRow}`,record:rows.length+1,excelRow,values});
+    rows.push({id:`${name}:${excelRow}`,record:rows.length+1,excelRow,values,...(imageRefs&&Object.keys(imageRefs).length?{imageRefs}:{})});
   }
   return {name,headerRow,columns,rows,skippedHeaders};
 }
@@ -43,7 +43,7 @@ export async function readWorkbook(source){
   const sheets=[];
   for(const sheet of wb.worksheets){
     if(sheet.rowCount>100000||sheet.columnCount>500)throw Error('This workbook exceeds the preview limit of 100,000 rows or 500 columns per sheet.');
-    const raw=[];sheet.eachRow({includeEmpty:false},row=>{const values=Array.from({length:sheet.columnCount},(_,i)=>cellValue(row.getCell(i+1)));if(values.some(v=>v.trim()))raw.push([row.number,values]);});
+    const raw=[];sheet.eachRow({includeEmpty:false},row=>{const imageRefs={};const values=Array.from({length:sheet.columnCount},(_,i)=>{const cell=row.getCell(i+1);if(typeof cell.hyperlink==='string'&&cell.hyperlink)imageRefs[i]=cell.hyperlink;return cellValue(cell);});if(values.some(v=>v.trim()))raw.push([row.number,values,imageRefs]);});
     if(raw.length)sheets.push(normalizeSheet(sheet.name,raw));
   }
   if(!sheets.length)throw Error('Workbook contains no populated worksheets.');

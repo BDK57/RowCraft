@@ -8,9 +8,9 @@ export function selectedRecords(workbook,sheetName,ids){
   if(rows.length!==selected.size)throw new Error('The selection contains records outside this worksheet.');
   return {sheet,rows};
 }
-export function validateMappings(mappings,template,artboard,columns){
+export function validateMappings(mappings,template,artboard,columns,{allowEmpty=false}={}){
   if(!Number.isInteger(artboard)||!template.artboards[artboard])throw new Error('Choose a cover.');
-  if(!Array.isArray(mappings)||!mappings.length||mappings.length>100)throw new Error('Map at least one field.');
+  if(!Array.isArray(mappings)||(!mappings.length&&!allowEmpty)||mappings.length>100)throw new Error('Map at least one field.');
   const seen=new Set();
   return mappings.map((m,index)=>{
     if(!Number.isInteger(m.column)||m.column<0||m.column>=columns.length)throw new Error('A mapping refers to a missing Excel column.');

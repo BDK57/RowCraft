@@ -5,6 +5,7 @@ import fs from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import crypto from 'node:crypto';
 import {spawn} from 'node:child_process';
+import {supportsIllustrator,illustratorInvocation,illustratorHostError} from './illustrator-host.mjs';
 import {fileURLToPath} from 'node:url';
 import {selectedRecords,validateMappings,validateTextFit} from './domain.mjs';
 import {planGrid,gridAssignments,splitMappings} from './grid.mjs';
@@ -12,10 +13,13 @@ import {planSections,sectionAssignments} from './sections.mjs';
 import {downloadableArtifact} from './artifacts.mjs';
 import {readWorkbook} from './workbook.mjs';
 import {unpackTemplate,packageOutput} from './archives.mjs';
+import {validatePhotoMapping} from './photos.mjs';
+import {importImageAssets,readImageLibrary,publicImageLibrary,resolveImage,preparePhotoRecords} from './image-assets.mjs';
 
 const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const {version:VERSION}=JSON.parse(await fs.readFile(path.join(ROOT,'package.json'),'utf8'));
 const LOCAL=path.resolve(process.env.ROWCRAFT_DATA_DIR||path.join(ROOT,'.local'));const PORT=Number(process.env.PORT||4317);
-for(const d of ['uploads','workbooks','templates','jobs'])await fs.mkdir(path.join(LOCAL,d),{recursive:true});
+for(const d of ['uploads','workbooks','templates','jobs','images'])await fs.mkdir(path.join(LOCAL,d),{recursive:true});
 const token=crypto.randomBytes(24).toString('hex');
 let closing=false;
 const app=express();app.disable('x-powered-by');app.use(express.json({limit:'4mb'}));
@@ -34,6 +38,7 @@ app.use('/api',(req,res,next)=>{
   next();
 });
 const upload=multer({dest:path.join(LOCAL,'uploads'),limits:{fileSize:160*1024*1024,files:1}});
+const imageUpload=multer({dest:path.join(LOCAL,'uploads'),limits:{fileSize:20*1024*1024,files:20,fieldSize:128*1024}});
 function run(command,args,options={}){
   return new Promise((resolve,reject)=>{const p=spawn(command,args,{cwd:LOCAL,windowsHide:true,...options});let stdout='',stderr='';p.stdout.on('data',d=>{stdout+=d;if(stdout.length>32*1024*1024)p.kill();});p.stderr.on('data',d=>stderr+=d);p.on('error',e=>reject(new Error(`Cannot start ${path.basename(command)}: ${e.message}`)));p.on('close',code=>code===0?resolve(stdout):reject(new Error(stderr.trim()||stdout.trim()||`Renderer exited with code ${code}`)));});
 }
@@ -56,13 +61,12 @@ function enqueue(type,work){
   }).finally(()=>{pendingJobs--;});return status;
 }
 async function illustrator(request,dir){
-  if(process.platform!=='win32')throw Error('Native Illustrator generation requires Windows and an installed Illustrator desktop application.');
+  if(!supportsIllustrator())throw Error('Native Illustrator generation requires Windows or macOS and an installed Illustrator desktop application.');
   await writeJSON(path.join(dir,'request.json'),request);
   const script=path.join(dir,'worker.jsx');
   await fs.copyFile(path.join(ROOT,'server','illustrator.jsx'),script);
-  const powershell=path.join(process.env.SystemRoot||'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe');
-  const command="$ErrorActionPreference='Stop'; try { $illustrator=New-Object -ComObject Illustrator.Application; $null=$illustrator.DoJavaScriptFile($env:COVER_STUDIO_SCRIPT) } catch { [Console]::Error.WriteLine($_.Exception.Message); exit 1 }";
-  await run(powershell,['-NoLogo','-NoProfile','-NonInteractive','-Command',command],{env:{...process.env,COVER_STUDIO_SCRIPT:script}});
+  const invocation=illustratorInvocation(script);
+  try{await run(invocation.command,invocation.args,invocation.options);}catch(error){throw Error(illustratorHostError(error.message));}
   const result=await readJSON(path.join(dir,'response.json'));
   if(result.error)throw Error(result.error);
   return result;
@@ -82,8 +86,30 @@ function importTemplate(source,name,assetsRoot){
   });
 }
 function publicTemplate(t){const {source,assetsRoot,...rest}=t;return {...rest,artboards:t.artboards.map((a,i)=>({...a,preview:`/api/templates/${t.id}/preview/${i}`}))};}
-app.get('/api/session',(req,res)=>res.json({token,platform:process.platform,nativeAvailable:process.platform==='win32'&&process.env.ROWCRAFT_NATIVE_AVAILABLE!=='0'}));
-app.get('/api/health',(req,res)=>res.json({ok:true,version:'0.2.0',singleAi:true,renderer:'Illustrator desktop',platform:process.platform}));
+app.get('/api/session',(req,res)=>res.json({token,platform:process.platform,nativeAvailable:supportsIllustrator()&&process.env.ROWCRAFT_NATIVE_AVAILABLE!=='0'}));
+app.get('/api/health',(req,res)=>res.json({ok:true,version:VERSION,singleAi:true,renderer:'Illustrator desktop',platform:process.platform}));
+app.post('/api/images',imageUpload.array('files',20),async(req,res)=>{
+  try{
+    if(!req.files?.length)throw Error('Choose images from your computer.');
+    const names=req.body.names?JSON.parse(req.body.names):req.files.map(file=>file.originalname);
+    if(!Array.isArray(names)||names.length!==req.files.length||names.some(name=>typeof name!=='string'))throw Error('Image filenames do not match the uploads.');
+    res.json(await importImageAssets(LOCAL,req.files,names,req.body.libraryId));
+  }finally{await Promise.all((req.files||[]).map(file=>fs.rm(file.path,{force:true})));}
+});
+app.get('/api/images/library/:id',async(req,res)=>res.json(publicImageLibrary(await readImageLibrary(LOCAL,key(req.params.id)))));
+app.get('/api/images/library/:id/:assetId',async(req,res)=>{
+  const library=await readImageLibrary(LOCAL,key(req.params.id)),asset=library.assets.find(item=>item.id===key(req.params.assetId));
+  if(!asset)return res.sendStatus(404);res.sendFile(path.join(LOCAL,'images','libraries',library.id,asset.thumbnail),{dotfiles:'allow'});
+});
+app.get('/api/images/remote/:hash',async(req,res)=>{
+  if(!/^[a-f0-9]{64}$/.test(req.params.hash))return res.sendStatus(404);
+  res.sendFile(path.join(LOCAL,'images','remote',req.params.hash,'image-preview.png'),{dotfiles:'allow'});
+});
+app.post('/api/images/resolve',async(req,res)=>{
+  if(typeof req.body.reference!=='string'||req.body.reference.length>4096)throw Error('Choose an image reference.');
+  try{const asset=await resolveImage(LOCAL,req.body.reference,req.body.libraryId);res.json(asset?{available:true,asset:{id:asset.id,name:asset.name,width:asset.width,height:asset.height,preview:asset.preview}}:{available:false,message:'This row has no image. The original image will stay.'});}
+  catch(error){res.json({available:false,message:'Original image will stay. '+error.message});}
+});
 app.post('/api/workbooks',upload.single('file'),async(req,res)=>{
   if(!req.file)throw Error('Choose an Excel workbook or CSV file.');
   const ext=path.extname(req.file.originalname).toLowerCase();if(!['.xlsx','.csv'].includes(ext))throw Error('Use an XLSX or CSV file. Save older XLS workbooks as XLSX first.');
@@ -120,9 +146,10 @@ app.get('/api/templates/:id/preview/:index',async(req,res)=>{
 app.post('/api/templates/:id/preset',async(req,res)=>{
   const t=await template(req.params.id);const {name,artboard,mappings,columns,layout}=req.body;
   if(typeof name!=='string'||!name.trim()||!Array.isArray(columns))throw Error('Name this mapping preset.');
-  const checked=validateMappings(mappings,t,artboard,columns);
-  planGrid(t,artboard,layout,checked,1);
-  t.preset={name:name.trim().slice(0,100),artboard,layout:{cardId:layout.cardId},mappings:checked.map(m=>({...m,columnName:columns[m.column]}))};
+  const sample=t.artboards[artboard]?.cards?.find(card=>card.id===layout?.cardId),photo=validatePhotoMapping(req.body.photo,sample,columns);
+  const checked=validateMappings(mappings,t,artboard,columns,{allowEmpty:!!photo});
+  planGrid(t,artboard,{...layout,photo},checked,1);
+  t.preset={name:name.trim().slice(0,100),artboard,layout:{cardId:layout.cardId},mappings:checked.map(m=>({...m,columnName:columns[m.column]})),photo:photo?{source:photo.source,targetId:photo.targetId,column:photo.column,columnName:columns[photo.column],libraryId:photo.libraryId,assetId:photo.assetId,adjustment:photo.adjustment}:null};
   await writeJSON(path.join(LOCAL,'templates',t.id,'template.json'),t);res.json(publicTemplate(t));
 });
 app.post('/api/templates/:id/analyze',async(req,res)=>{
@@ -139,9 +166,12 @@ app.post('/api/jobs',async(req,res)=>{
   if(req.body.sections!==undefined){
     if(t.missingLinks?.length)throw Error('Resolve missing linked images before exporting.');
     const fullPlan=planSections(t,w,sheetName,req.body.sections),plan=proof?planSections(t,w,sheetName,req.body.sections,{proof:true}):fullPlan;
-    const job=enqueue(proof?'proof':'generate',async(dir)=>{
+    const job=enqueue(proof?'proof':'generate',async(dir,status)=>{
       const outputDir=path.join(dir,'output');await fs.mkdir(outputDir,{recursive:true});
+      const imageWarnings=[];
+      for(const section of plan.sections){const prepared=await preparePhotoRecords(LOCAL,section.photo,section.records,dir,{progress:(done,total)=>Object.assign(status,{message:`Checking ${section.name} images (${done}/${total})`,progress:Math.round(done/total*15)})});section.photo=prepared.photo;imageWarnings.push(...prepared.warnings.map(warning=>section.name+': '+warning));}
       const result=await illustrator({operation:'generate-sections',source:t.source,assetsRoot:t.assetsRoot,sectionPlan:plan,textFit,includePdf:!!includePdf,outputDir,metadata:t},dir);
+      result.warnings=[...imageWarnings,...(result.warnings||[])];
       await fs.stat(path.join(outputDir,'personalized-covers.ai'));if(includePdf)await fs.stat(path.join(outputDir,'personalized-covers.pdf'));
       await writeJSON(path.join(outputDir,'manifest.json'),{workbook:w.name,sheet:sheetName,template:t.name,mode:'sections',pages:plan.pageCount,textFit,sections:plan.sections.map(s=>({id:s.id,name:s.name,artboard:s.artboard+1,box:s.box,cardsPerPage:s.capacity,count:s.records.length,mappings:s.mappings,labels:s.labels})),records:sectionAssignments(plan),warnings:result.warnings||[]});
       await packageOutput(outputDir,path.join(dir,'covers.zip'));
@@ -149,17 +179,20 @@ app.post('/api/jobs',async(req,res)=>{
     });return res.status(202).json(job);
   }
   const selection=selectedRecords(w,sheetName,recordIds);
-  const checked=validateMappings(mappings,t,artboard,selection.sheet.columns);
-  const fullPlan=planGrid(t,artboard,layout,checked,selection.rows.length);
+  const sample=t.artboards[artboard]?.cards?.find(card=>card.id===layout?.cardId),photo=validatePhotoMapping(req.body.photo,sample,selection.sheet.columns);
+  const checked=validateMappings(mappings,t,artboard,selection.sheet.columns,{allowEmpty:!!photo});
+  const fullPlan=planGrid(t,artboard,{...layout,photo},checked,selection.rows.length);
   const rows=proof?selection.rows.slice(0,fullPlan.capacity):selection.rows;
-  const grid=planGrid(t,artboard,layout,checked,rows.length),parts=splitMappings(grid,checked);
+  const grid=planGrid(t,artboard,{...layout,photo},checked,rows.length),parts=splitMappings(grid,checked);
   if(t.missingLinks?.length)throw Error('Resolve missing linked images before exporting.');
-  const job=enqueue(proof?'proof':'generate',async(dir)=>{
+  const job=enqueue(proof?'proof':'generate',async(dir,status)=>{
     const outputDir=path.join(dir,'output');await fs.mkdir(outputDir,{recursive:true});
-    const result=await illustrator({operation:'generate',source:t.source,assetsRoot:t.assetsRoot,artboard,mappings:parts.card,pageMappings:parts.page,records:rows,grid,textFit,includePdf:!!includePdf,outputDir,metadata:t},dir);
+    const prepared=await preparePhotoRecords(LOCAL,photo,rows,dir,{progress:(done,total)=>Object.assign(status,{message:`Checking card images (${done}/${total})`,progress:Math.round(done/total*15)})});
+    const result=await illustrator({operation:'generate',source:t.source,assetsRoot:t.assetsRoot,artboard,mappings:parts.card,pageMappings:parts.page,records:rows,photo:prepared.photo,grid,textFit,includePdf:!!includePdf,outputDir,metadata:t},dir);
+    result.warnings=[...prepared.warnings,...(result.warnings||[])];
     await fs.stat(path.join(outputDir,'personalized-covers.ai'));
     if(includePdf)await fs.stat(path.join(outputDir,'personalized-covers.pdf'));
-    await writeJSON(path.join(outputDir,'manifest.json'),{workbook:w.name,sheet:sheetName,template:t.name,artboard:artboard+1,columns:selection.sheet.columns,cardsPerPage:grid.capacity,pages:grid.pages,textFit,records:gridAssignments(grid,rows),mappings:checked,warnings:result.warnings||[]});
+    await writeJSON(path.join(outputDir,'manifest.json'),{workbook:w.name,sheet:sheetName,template:t.name,artboard:artboard+1,columns:selection.sheet.columns,cardsPerPage:grid.capacity,pages:grid.pages,textFit,records:gridAssignments(grid,rows),mappings:checked,photos:prepared.stats,warnings:result.warnings||[]});
     const archive=path.join(dir,'covers.zip');await packageOutput(outputDir,archive);
     const base=`/api/jobs/${path.basename(dir)}`;
     return {count:rows.length,pages:grid.pages,ai:base+'/ai',archive:base+'/download',pdf:includePdf?base+'/pdf':null,folder:outputDir,proof:!!proof,warnings:result.warnings||[],previews:result.previews.map(name=>base+'/preview/'+name)};

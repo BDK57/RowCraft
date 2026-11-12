@@ -8,7 +8,7 @@ export function planGrid(template,artboard,layout,mappings,recordCount){
   const slots=board.cards.filter(c=>c.family===sample.family).sort((a,b)=>Math.abs(a.y-b.y)*board.height>2?a.y-b.y:a.x-b.x);
   if(!slots.length)throw Error('This card has no available grid positions.');
   if(!Number.isInteger(recordCount)||recordCount<1||recordCount>5000)throw Error('Choose between 1 and 5,000 records.');
-  if(!mappings.some(m=>m.kind==='text'&&sample.targetIds.includes(m.targetId)))throw Error('Map at least one text field inside the selected sample card.');
+  if(!mappings.some(m=>m.kind==='text'&&sample.targetIds.includes(m.targetId))&&!sample.photos?.some(photo=>photo.id===layout?.photo?.targetId))throw Error('Map at least one text field or photo inside the selected sample card.');
   if(mappings.some(m=>m.kind==='text'&&!sample.targetIds.includes(m.targetId)&&board.cards.some(c=>c.targetIds.includes(m.targetId))))throw Error('Map fields in the selected sample card, rather than another card.');
   const pages=Math.ceil(recordCount/slots.length);
   const maxAcross=Math.floor((15000+40)/(board.width+40));

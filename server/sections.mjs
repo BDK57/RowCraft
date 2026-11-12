@@ -1,4 +1,11 @@
 import {selectedRecords,validateMappings} from './domain.mjs';
+import {validatePhotoMapping} from './photos.mjs';
+
+export function sectionRange(sheet,from,to){
+  const start=Number(from),end=Number(to);
+  if(!sheet||!String(from).trim()||!String(to).trim()||!Number.isInteger(start)||!Number.isInteger(end)||start<1||end<start||end>sheet.rows.length)return {recordIds:null,error:`Choose a complete range from 1 through ${sheet?.rows.length||0}.`};
+  return {recordIds:sheet.rows.slice(start-1,end).map(row=>row.id),error:''};
+}
 
 export function sectionCards(board,box){
   if(!box)return [];
@@ -13,6 +20,7 @@ export function planSections(template,workbook,sheetName,input,{proof=false}={})
   let total=0;
   const sections=input.map((s,index)=>{
     const name=String(s.name||`Section ${index+1}`).trim().slice(0,80);
+    if(s.rangeError)throw Error(`${name}: ${String(s.rangeError).slice(0,200)}`);
     if(typeof s.id!=='string'||!s.id||ids.has(s.id))throw Error('Each section needs a unique ID.');ids.add(s.id);
     if(!Number.isInteger(s.artboard)||!template.artboards[s.artboard])throw Error(`${name}: choose an existing artboard.`);
     const board=template.artboards[s.artboard],box=s.box;
@@ -21,7 +29,7 @@ export function planSections(template,workbook,sheetName,input,{proof=false}={})
     if(!sample||!slots.length)throw Error(`${name}: the box must fully contain a sample card.`);
     if(slots.some(c=>c.family!==sample.family))throw Error(`${name}: draw a box around cards of the same design.`);
     for(const card of slots){const key=`${s.artboard}:${card.id}`;if(usedCards.has(key))throw Error(`${name}: sections cannot share card positions.`);usedCards.add(key);}
-    const selection=selectedRecords(workbook,sheetName,s.recordIds),checked=validateMappings(s.mappings,template,s.artboard,selection.sheet.columns);
+    const selection=selectedRecords(workbook,sheetName,s.recordIds),photo=validatePhotoMapping(s.photo,sample,selection.sheet.columns),checked=validateMappings(s.mappings,template,s.artboard,selection.sheet.columns,{allowEmpty:!!photo});
     if(checked.some(m=>m.kind!=='text'||!sample.targetIds.includes(m.targetId)))throw Error(`${name}: map only the selected sample card’s fields.`);
     total+=selection.rows.length;if(total>5000)throw Error('Choose at most 5,000 cards across all sections.');
     if(!Array.isArray(s.labels)||s.labels.length>2)throw Error(`${name}: configure the heading and month labels.`);
@@ -39,7 +47,7 @@ export function planSections(template,workbook,sheetName,input,{proof=false}={})
       return {role:label.role,targetId:target.id,index:target.index,label:target.text,column:label.column,value:selection.rows[0].values[label.column]};
     });
     const records=proof?selection.rows.slice(0,slots.length):selection.rows;
-    return {id:s.id,name,artboard:s.artboard,box,sample,slots,capacity:slots.length,mappings:checked,labels,records,pages:Math.ceil(records.length/slots.length)};
+    return {id:s.id,name,artboard:s.artboard,box,sample,slots,capacity:slots.length,mappings:checked,photo,labels,records,pages:Math.ceil(records.length/slots.length)};
   });
   const boards=[...new Set(sections.map(s=>s.artboard))].sort((a,b)=>a-b).map(artboard=>{
     const own=sections.filter(s=>s.artboard===artboard),board=template.artboards[artboard];

@@ -1,0 +1,11 @@
+import type {PhotoAdjustment,PhotoMapping,PhotoTarget,ImageLibrary,ImageAsset} from '../src/lib/types';
+import type {Card} from '../src/CardLoop';
+export const DEFAULT_PHOTO:PhotoAdjustment;
+export type PhotoLayout={width:number;height:number;left:number;top:number};
+export type ValidPhoto=PhotoMapping & {target:PhotoTarget;adjustment:PhotoAdjustment;overrides:Record<string,PhotoAdjustment>};
+export function validateAdjustment(value?:PhotoAdjustment):PhotoAdjustment;
+export function photoLayout(fw:number,fh:number,w:number,h:number,a?:PhotoAdjustment):PhotoLayout;
+export function photoPosition(fw:number,fh:number,l:PhotoLayout,x:number,y:number,a:PhotoAdjustment):PhotoAdjustment;
+export function validatePhotoMapping(input:PhotoMapping|undefined,sample:Card|undefined,columns:string[]):ValidPhoto|null;
+export function imageReference(value:unknown):{kind:'empty'}|{kind:'url';value:string}|{kind:'file';value:string;basename:string};
+export function findImageAsset(library:ImageLibrary|null,value:string):ImageAsset|null;

@@ -1,13 +1,13 @@
 import {motion,useReducedMotion} from 'motion/react';
-import {Archive,ArrowRight,Check,ChevronRight,HelpCircle,LockKeyhole,FileSpreadsheet,Layers,X} from 'lucide-react';
+import {Archive,ArrowRight,BookOpen,Check,ChevronRight,HelpCircle,LockKeyhole,FileSpreadsheet,Layers,X} from 'lucide-react';
 import {AppBrand} from '@/components/app-brand';
 import {Button} from '@/components/ui/button';
 import {Sidebar,SidebarContent,SidebarFooter,SidebarGroup,SidebarGroupContent,SidebarGroupLabel,SidebarHeader,SidebarMenu,SidebarMenuButton,SidebarMenuItem,useSidebar} from '@/components/ui/sidebar';
 import {workflowSteps,type WorkflowView} from '@/lib/workflow';
 
-type AppSidebarProps={view:WorkflowView;complete:readonly (boolean|undefined)[];peopleReady:boolean;ready:boolean;selectedCount:number;sectionMode?:boolean;onNavigate:(view:WorkflowView)=>void;onHelp:()=>void};
+type AppSidebarProps={view:WorkflowView;complete:readonly (boolean|undefined)[];peopleReady:boolean;ready:boolean;selectedCount:number;sectionMode?:boolean;onNavigate:(view:WorkflowView)=>void;onHelp:()=>void;onRequirements:()=>void};
 
-export function AppSidebar({view,complete,peopleReady,ready,selectedCount,sectionMode=false,onNavigate,onHelp}:AppSidebarProps){
+export function AppSidebar({view,complete,peopleReady,ready,selectedCount,sectionMode=false,onNavigate,onHelp,onRequirements}:AppSidebarProps){
  const {isMobile,state,setOpenMobile}=useSidebar(),reduce=useReducedMotion();
  const expanded=isMobile||state==='expanded';
  function navigate(next:WorkflowView){onNavigate(next);if(isMobile)setOpenMobile(false);}
@@ -29,6 +29,7 @@ export function AppSidebar({view,complete,peopleReady,ready,selectedCount,sectio
   <SidebarFooter className="app-sidebar-footer"><SidebarMenu>
    <SidebarMenuItem><SidebarMenuButton tooltip="Batch history" aria-label="Batch history" onClick={()=>navigate('export')}><Archive aria-hidden="true"/><span>Batch history</span></SidebarMenuButton></SidebarMenuItem>
    <SidebarMenuItem><SidebarMenuButton tooltip="How it works" aria-label="How it works" onClick={()=>{onHelp();if(isMobile)setOpenMobile(false);}}><HelpCircle aria-hidden="true"/><span>How it works</span></SidebarMenuButton></SidebarMenuItem>
+   <SidebarMenuItem><SidebarMenuButton tooltip="Template requirements" aria-label="Template requirements" onClick={()=>{onRequirements();if(isMobile)setOpenMobile(false);}}><BookOpen aria-hidden="true"/><span>Template requirements</span></SidebarMenuButton></SidebarMenuItem>
   </SidebarMenu><div className="app-local-note"><LockKeyhole aria-hidden="true"/><div><strong>Private by design</strong><p>Your files stay on this computer.</p></div></div></SidebarFooter>
  </Sidebar>;
 }

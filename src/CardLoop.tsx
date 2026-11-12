@@ -1,4 +1,5 @@
-export type Card = { id: string; groupIndex: number; family: string; x: number; y: number; width: number; height: number; targetIds: string[] };
+import type {PhotoTarget} from './lib/types';
+export type Card = { id: string; groupIndex: number; family: string; x: number; y: number; width: number; height: number; targetIds: string[]; photos?:PhotoTarget[] };
 
 type Props = { cards: Card[] | undefined; cardId: string; count: number; picking: boolean; running: boolean; onPick: () => void; onSelect: (id: string) => void; onAnalyze: () => void };
 const inReadingOrder = (cards: Card[]) => [...cards].sort((a, b) => Math.abs(a.y - b.y) > .002 ? a.y - b.y : a.x - b.x);
