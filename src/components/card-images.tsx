@@ -26,6 +26,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChoiceSelect } from "@/components/choice-select";
 
@@ -81,7 +82,7 @@ export function CardImageSource({ s }: { s: Studio }) {
               onChange={(v) => s.images.setColumn(Number(v))}
             />
           </div>
-          {/* <div>
+          <div>
             <div className="flex flex-wrap gap-2">
               <Button
                 variant="outline"
@@ -99,7 +100,7 @@ export function CardImageSource({ s }: { s: Studio }) {
                 Choose files
               </Button>
             </div>
-          </div> */}
+          </div>
         </div>
       )}
       <p className="photo-source-note">
@@ -405,6 +406,7 @@ export function PhotoEditor({
     if (target && row) s.images.adjust(scope, target.id, row.id, value);
   }
   const error = s.images.source !== "keep" && !target;
+  const applyAll = s.images.applyAll(scope, target?.id || "");
   return (
     <div className="photo-editor">
       <div className="photo-editor-heading">
@@ -412,8 +414,22 @@ export function PhotoEditor({
         <p>
           {s.images.source === "shared"
             ? "One crop for every card."
-            : "Adjustments are saved for this person only. Other people start with centered Fill."}
+            : applyAll
+              ? "By default, this adjustment applies to all rows."
+              : "Adjustments are saved for this person only. Pick each row in Preview person to adjust it. Other people use the all-rows adjustment."}
         </p>
+        {s.images.source === "column" && target && (
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox
+              checked={applyAll}
+              disabled={s.running}
+              onCheckedChange={(value) =>
+                s.images.setApplyAll(scope, target.id, value === true)
+              }
+            />
+            Apply this adjustment to all rows
+          </label>
+        )}
       </div>
       {s.images.source === "keep" ? (
         <p className="text-sm text-muted-foreground">
