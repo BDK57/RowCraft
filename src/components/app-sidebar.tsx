@@ -29,7 +29,7 @@ export function AppSidebar({view,complete,peopleReady,ready,selectedCount,sectio
   <SidebarFooter className="app-sidebar-footer"><SidebarMenu>
    <SidebarMenuItem><SidebarMenuButton tooltip="Batch history" aria-label="Batch history" onClick={()=>navigate('export')}><Archive aria-hidden="true"/><span>Batch history</span></SidebarMenuButton></SidebarMenuItem>
    <SidebarMenuItem><SidebarMenuButton tooltip="How it works" aria-label="How it works" onClick={()=>{onHelp();if(isMobile)setOpenMobile(false);}}><HelpCircle aria-hidden="true"/><span>How it works</span></SidebarMenuButton></SidebarMenuItem>
-   <SidebarMenuItem><SidebarMenuButton tooltip="Template requirements" aria-label="Template requirements" onClick={()=>{onRequirements();if(isMobile)setOpenMobile(false);}}><BookOpen aria-hidden="true"/><span>Template requirements</span></SidebarMenuButton></SidebarMenuItem>
+   {/* <SidebarMenuItem><SidebarMenuButton tooltip="Template requirements" aria-label="Template requirements" onClick={()=>{onRequirements();if(isMobile)setOpenMobile(false);}}><BookOpen aria-hidden="true"/><span>Template requirements</span></SidebarMenuButton></SidebarMenuItem> */}
   </SidebarMenu><div className="app-local-note"><LockKeyhole aria-hidden="true"/><div><strong>Private by design</strong><p>Your files stay on this computer.</p></div></div></SidebarFooter>
  </Sidebar>;
 }
